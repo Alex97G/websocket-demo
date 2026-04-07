@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>WebSocket Chat</title>
+</head>
+<body>
+
+<h2>WebSocket Chat</h2>
+
+<input id="url" type="text" value="ws://localhost:8080" size="50">
+<button onclick="connect()">Conectar</button>
+<button onclick="disconnect()">Desconectar</button>
+
+<br><br>
+
+<input id="message" type="text" placeholder="Escribe un mensaje">
+<button onclick="sendMessage()">Enviar</button>
+
+<h3>Mensajes:</h3>
+<div id="chat" style="border:1px solid black; height:200px; overflow:auto;"></div>
+
+<p>Enviados: <span id="sent">0</span></p>
+<p>Recibidos: <span id="received">0</span></p>
+
+<script>
+let socket;
+let sent = 0;
+let received = 0;
+
+function connect() {
+  const url = document.getElementById("url").value;
+  socket = new WebSocket(url);
+
+  socket.onopen = () => {
+    log("Conectado al servidor");
+  };
+
+  socket.onmessage = (event) => {
+    received++;
+    document.getElementById("received").innerText = received;
+    log("Recibido: " + event.data);
+  };
+
+  socket.onclose = () => {
+    log("Desconectado");
+  };
+}
+
+function disconnect() {
+  socket.close();
+}
+
+function sendMessage() {
+  const msg = document.getElementById("message").value;
+  socket.send(msg);
+  sent++;
+  document.getElementById("sent").innerText = sent;
+  log("Enviado: " + msg);
+}
+
+function log(message) {
+  const chat = document.getElementById("chat");
+  chat.innerHTML += message + "<br>";
+  chat.scrollTop = chat.scrollHeight;
+}
+</script>
+
+</body>
+</html>
