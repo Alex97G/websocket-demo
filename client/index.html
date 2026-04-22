@@ -1,130 +1,27 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <title>Chat WebSocket PRO</title>
-
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #0f172a, #1e293b);
-  color: white;
-  text-align: center;
-}
-
-.container {
-  width: 400px;
-  margin: 30px auto;
-  background: #1e293b;
-  padding: 20px;
-  border-radius: 15px;
-  box-shadow: 0px 0px 20px rgba(0,0,0,0.5);
-}
-
-h2 {
-  margin-bottom: 10px;
-}
-
-input {
-  width: 90%;
-  padding: 10px;
-  margin: 5px;
-  border-radius: 8px;
-  border: none;
-  outline: none;
-}
-
-button {
-  padding: 10px 15px;
-  margin: 5px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.connect {
-  background: #22c55e;
-  color: white;
-}
-
-.disconnect {
-  background: #ef4444;
-  color: white;
-}
-
-.send {
-  background: #3b82f6;
-  color: white;
-}
-
-#chat {
-  height: 300px;
-  overflow-y: auto;
-  background: #020617;
-  padding: 10px;
-  border-radius: 10px;
-  margin-top: 10px;
-  text-align: left;
-}
-
-/* mensajes */
-.msg {
-  margin: 5px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  max-width: 70%;
-  word-wrap: break-word;
-}
-
-.me {
-  background: #2563eb;
-  margin-left: auto;
-  text-align: right;
-}
-
-.other {
-  background: #334155;
-}
-
-.bot {
-  background: #7c3aed;
-}
-
-.system {
-  color: #facc15;
-  font-size: 12px;
-  text-align: center;
-}
-
-.status {
-  font-size: 12px;
-  margin-top: 5px;
-}
-</style>
-
 </head>
 
 <body>
 
-<div class="container">
-<h2>💬 Chat WebSocket PRO</h2>
+<h2>Chat WebSocket</h2>
 
-<input id="url" value="wss://websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com">
-<input id="password" placeholder="Clave (ej: 1234)">
-<input id="username" placeholder="Tu nombre">
-<input id="room" placeholder="Código de sala">
+<input id="url" value="wss://websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com"><br>
+<input id="password" placeholder="Clave"><br>
+<input id="username" placeholder="Usuario"><br>
+<input id="room" placeholder="Sala"><br>
 
-<button class="connect" onclick="connect()">Conectar</button> <button class="disconnect" onclick="disconnect()">Salir</button>
+<button onclick="connect()">Conectar</button>
+
+<br><br>
+
+<input id="message" placeholder="Mensaje">
+<button onclick="send()">Enviar</button>
 
 <div id="chat"></div>
-
-<input id="message" placeholder="Escribe un mensaje...">
-<button class="send" onclick="send()">Enviar</button>
-
-<p class="status" id="status">Desconectado</p>
-</div>
 
 <script>
 let socket;
@@ -133,10 +30,8 @@ function connect() {
   socket = new WebSocket(document.getElementById("url").value);
 
   socket.onopen = () => {
-    log("Conectado 🚀", "system");
-    document.getElementById("status").innerText = "🟢 Conectado";
 
-    // autenticación
+    // enviar clave
     socket.send(JSON.stringify({
       type: "auth",
       password: document.getElementById("password").value
@@ -148,33 +43,28 @@ function connect() {
       username: document.getElementById("username").value,
       room: document.getElementById("room").value
     }));
+
+    log("Conectado");
   };
 
   socket.onmessage = (e) => {
-    console.log("DATA:", e.data);
-
     const data = JSON.parse(e.data);
 
     if (data.type === "message") {
-      log(data.user + ": " + data.text, "other");
-    }
-
-    if (data.type === "bot") {
-      log("🤖 " + data.text, "bot");
+      log(data.user + ": " + data.text);
     }
 
     if (data.type === "system") {
-      log(data.text, "system");
+      log(data.text);
+    }
+
+    if (data.type === "bot") {
+      log("BOT: " + data.text);
     }
 
     if (data.type === "error") {
       alert(data.text);
     }
-  };
-
-  socket.onclose = () => {
-    log("Desconectado ❌", "system");
-    document.getElementById("status").innerText = "🔴 Desconectado";
   };
 }
 
@@ -186,23 +76,11 @@ function send() {
     text: msg
   }));
 
-  log("Yo: " + msg, "me");
-  document.getElementById("message").value = "";
+  log("Yo: " + msg);
 }
 
-function disconnect() {
-  socket.close();
-}
-
-function log(text, type) {
-  const chat = document.getElementById("chat");
-
-  const div = document.createElement("div");
-  div.className = "msg " + type;
-  div.innerText = text;
-
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+function log(text) {
+  document.getElementById("chat").innerHTML += text + "<br>";
 }
 </script>
 
