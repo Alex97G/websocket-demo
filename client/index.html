@@ -1,27 +1,130 @@
 <!DOCTYPE html>
+
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <title>Chat WebSocket PRO</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: white;
+  text-align: center;
+}
+
+.container {
+  width: 400px;
+  margin: 30px auto;
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0px 0px 20px rgba(0,0,0,0.5);
+}
+
+h2 {
+  margin-bottom: 10px;
+}
+
+input {
+  width: 90%;
+  padding: 10px;
+  margin: 5px;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+}
+
+button {
+  padding: 10px 15px;
+  margin: 5px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.connect {
+  background: #22c55e;
+  color: white;
+}
+
+.disconnect {
+  background: #ef4444;
+  color: white;
+}
+
+.send {
+  background: #3b82f6;
+  color: white;
+}
+
+#chat {
+  height: 300px;
+  overflow-y: auto;
+  background: #020617;
+  padding: 10px;
+  border-radius: 10px;
+  margin-top: 10px;
+  text-align: left;
+}
+
+/* mensajes */
+.msg {
+  margin: 5px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  max-width: 70%;
+  word-wrap: break-word;
+}
+
+.me {
+  background: #2563eb;
+  margin-left: auto;
+  text-align: right;
+}
+
+.other {
+  background: #334155;
+}
+
+.bot {
+  background: #7c3aed;
+}
+
+.system {
+  color: #facc15;
+  font-size: 12px;
+  text-align: center;
+}
+
+.status {
+  font-size: 12px;
+  margin-top: 5px;
+}
+</style>
+
 </head>
 
 <body>
 
-<h2>Chat WebSocket</h2>
+<div class="container">
+<h2>💬 Chat WebSocket PRO</h2>
 
-<input id="url" value="wss://websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com"><br>
-<input id="password" placeholder="Clave"><br>
-<input id="username" placeholder="Usuario"><br>
-<input id="room" placeholder="Sala"><br>
+<input id="url" value="wss://websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com">
+<input id="password" placeholder="Clave (ej: 1234)">
+<input id="username" placeholder="Tu nombre">
+<input id="room" placeholder="Código de sala">
 
-<button onclick="connect()">Conectar</button>
-
-<br><br>
-
-<input id="message" placeholder="Mensaje">
-<button onclick="send()">Enviar</button>
+<button class="connect" onclick="connect()">Conectar</button> <button class="disconnect" onclick="disconnect()">Salir</button>
 
 <div id="chat"></div>
+
+<input id="message" placeholder="Escribe un mensaje...">
+<button class="send" onclick="send()">Enviar</button>
+
+<p class="status" id="status">Desconectado</p>
+</div>
 
 <script>
 let socket;
@@ -30,16 +133,16 @@ function connect() {
   socket = new WebSocket(document.getElementById("url").value);
 
   socket.onopen = () => {
+    log("Conectado 🚀", "system");
+    document.getElementById("status").innerText = "🟢 Conectado";
 
-    log("Conectado");
-
-    // 🔐 enviar clave
+    // autenticación
     socket.send(JSON.stringify({
       type: "auth",
       password: document.getElementById("password").value
     }));
 
-    // 👤 unirse a sala
+    // unirse a sala
     socket.send(JSON.stringify({
       type: "join",
       username: document.getElementById("username").value,
@@ -48,32 +151,30 @@ function connect() {
   };
 
   socket.onmessage = (e) => {
-    console.log("RECIBIDO:", e.data); // debug
+    console.log("DATA:", e.data);
 
-    let data;
-
-    try {
-      data = JSON.parse(e.data);
-    } catch {
-      log("Mensaje inválido");
-      return;
-    }
+    const data = JSON.parse(e.data);
 
     if (data.type === "message") {
-      log(data.user + ": " + data.text);
-    }
-
-    if (data.type === "system") {
-      log(data.text);
+      log(data.user + ": " + data.text, "other");
     }
 
     if (data.type === "bot") {
-      log("BOT: " + data.text);
+      log("🤖 " + data.text, "bot");
+    }
+
+    if (data.type === "system") {
+      log(data.text, "system");
     }
 
     if (data.type === "error") {
       alert(data.text);
     }
+  };
+
+  socket.onclose = () => {
+    log("Desconectado ❌", "system");
+    document.getElementById("status").innerText = "🔴 Desconectado";
   };
 }
 
@@ -85,12 +186,23 @@ function send() {
     text: msg
   }));
 
-  log("Yo: " + msg);
+  log("Yo: " + msg, "me");
+  document.getElementById("message").value = "";
 }
 
-function log(text) {
+function disconnect() {
+  socket.close();
+}
+
+function log(text, type) {
   const chat = document.getElementById("chat");
-  chat.innerHTML += text + "<br>";
+
+  const div = document.createElement("div");
+  div.className = "msg " + type;
+  div.innerText = text;
+
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
 }
 </script>
 
