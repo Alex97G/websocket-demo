@@ -31,24 +31,33 @@ function connect() {
 
   socket.onopen = () => {
 
-    // enviar clave
+    log("Conectado");
+
+    // 🔐 enviar clave
     socket.send(JSON.stringify({
       type: "auth",
       password: document.getElementById("password").value
     }));
 
-    // unirse a sala
+    // 👤 unirse a sala
     socket.send(JSON.stringify({
       type: "join",
       username: document.getElementById("username").value,
       room: document.getElementById("room").value
     }));
-
-    log("Conectado");
   };
 
   socket.onmessage = (e) => {
-    const data = JSON.parse(e.data);
+    console.log("RECIBIDO:", e.data); // debug
+
+    let data;
+
+    try {
+      data = JSON.parse(e.data);
+    } catch {
+      log("Mensaje inválido");
+      return;
+    }
 
     if (data.type === "message") {
       log(data.user + ": " + data.text);
@@ -80,7 +89,8 @@ function send() {
 }
 
 function log(text) {
-  document.getElementById("chat").innerHTML += text + "<br>";
+  const chat = document.getElementById("chat");
+  chat.innerHTML += text + "<br>";
 }
 </script>
 
