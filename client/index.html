@@ -3,11 +3,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Chat WebSocket PRO</title>
+<title>Chat PRO</title>
 
 <style>
 body {
-  font-family: Arial, sans-serif;
+  font-family: Arial;
   background: linear-gradient(135deg, #0f172a, #1e293b);
   color: white;
   display: flex;
@@ -17,75 +17,53 @@ body {
 }
 
 .container {
-  width: 400px;
+  width: 420px;
   background: #1e293b;
   padding: 20px;
   border-radius: 15px;
-  box-shadow: 0 0 25px rgba(0,0,0,0.6);
 }
 
-h2 {
-  text-align: center;
+.tabs {
+  display: flex;
+  gap: 5px;
 }
 
-input {
-  width: 100%;
+.tabs button {
+  flex: 1;
   padding: 10px;
-  margin: 5px 0;
-  border-radius: 8px;
   border: none;
-}
-
-button {
-  padding: 10px;
-  margin-top: 5px;
-  border: none;
-  border-radius: 8px;
   cursor: pointer;
-  width: 100%;
-  font-weight: bold;
+  border-radius: 8px;
 }
 
-.connect { background: #22c55e; }
-.disconnect { background: #ef4444; }
-.send { background: #3b82f6; }
+.active { background: #22c55e; }
 
 #chat {
   height: 250px;
   overflow-y: auto;
   background: #020617;
+  margin: 10px 0;
   padding: 10px;
   border-radius: 10px;
-  margin: 10px 0;
 }
 
-/* mensajes */
-.msg {
-  padding: 8px;
-  margin: 5px;
-  border-radius: 10px;
-  max-width: 75%;
-  word-wrap: break-word;
+.msg { margin: 5px; padding: 8px; border-radius: 10px; max-width: 70%; }
+.me { background: #2563eb; margin-left: auto; }
+.other { background: #334155; }
+.bot { background: #7c3aed; }
+.system { text-align: center; font-size: 12px; color: #facc15; }
+
+input, button {
+  width: 100%;
+  margin: 5px 0;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
 }
 
-.me {
-  background: #2563eb;
-  margin-left: auto;
-  text-align: right;
-}
-
-.other {
-  background: #334155;
-}
-
-.bot {
-  background: #7c3aed;
-}
-
-.system {
-  text-align: center;
-  font-size: 12px;
-  color: #facc15;
+#qr {
+  text-align:center;
+  margin-top:10px;
 }
 </style>
 
@@ -94,57 +72,87 @@ button {
 <body>
 
 <div class="container">
-<h2>💬 Chat WebSocket</h2>
 
-<input id="url" value="wss://websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com">
-<input id="password" placeholder="Clave (ej: 1234)">
-<input id="username" placeholder="Tu nombre">
-<input id="room" placeholder="Sala">
+<h2>💬 Chat Inteligente</h2>
+<p id="modeLabel" style="text-align:center;">Modo: Chat 👥</p>
 
-<button class="connect" onclick="connect()">Conectar</button> <button class="disconnect" onclick="disconnect()">Salir</button>
+<div class="tabs">
+  <button id="chatBtn" class="active" onclick="setMode('chat')">👥 Chat</button>
+  <button id="botBtn" onclick="setMode('bot')">🤖 Bot</button>
+</div>
+
+<input id="url" value="wss://TU_URL_AQUI">
+<input id="password" placeholder="Clave (1234)">
+<input id="username" placeholder="Usuario">
+
+<button onclick="connect()">Conectar</button>
 
 <div id="chat"></div>
 
-<input id="message" placeholder="Escribe un mensaje...">
-<button class="send" onclick="send()">Enviar</button>
+<input id="message" placeholder="Mensaje...">
+<button onclick="send()">Enviar</button>
+
+<div id="qr">
+  <p>Escanea para entrar 📱</p>
+  <img id="qrImg" width="150">
+</div>
+
 </div>
 
 <script>
 let socket;
+let mode = "chat";
+
+function setMode(m) {
+  mode = m;
+
+  document.getElementById("chatBtn").classList.remove("active");
+  document.getElementById("botBtn").classList.remove("active");
+  document.getElementById(m + "Btn").classList.add("active");
+
+  document.getElementById("modeLabel").innerText =
+    m === "bot" ? "Modo: Bot 🤖" : "Modo: Chat 👥";
+
+  document.getElementById("chat").innerHTML = "";
+
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.close();
+    setTimeout(connect, 300);
+  }
+}
 
 function connect() {
-  socket = new WebSocket(document.getElementById("url").value);
+  const url = document.getElementById("url").value;
+
+  // QR generado
+  document.getElementById("qrImg").src =
+    "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" +
+    encodeURIComponent(window.location.href);
+
+  socket = new WebSocket(url);
 
   socket.onopen = () => {
-    log("Conectado 🚀", "system");
-
-    // 🔐 autenticación
     socket.send(JSON.stringify({
       type: "auth",
       password: document.getElementById("password").value
     }));
 
-    // 👤 unirse a sala
     socket.send(JSON.stringify({
       type: "join",
       username: document.getElementById("username").value,
-      room: document.getElementById("room").value
+      mode: mode
     }));
+
+    log("Conectado 🚀", "system");
   };
 
   socket.onmessage = (e) => {
-    let data;
-
-    try {
-      data = JSON.parse(e.data);
-    } catch {
-      return;
-    }
+    const data = JSON.parse(e.data);
 
     if (data.type === "message") {
-      const currentUser = document.getElementById("username").value;
+      const user = document.getElementById("username").value;
 
-      if (data.user === currentUser) {
+      if (data.user === user) {
         log("Yo: " + data.text, "me");
       } else {
         log(data.user + ": " + data.text, "other");
@@ -158,14 +166,6 @@ function connect() {
     if (data.type === "system") {
       log(data.text, "system");
     }
-
-    if (data.type === "error") {
-      alert(data.text);
-    }
-  };
-
-  socket.onclose = () => {
-    log("Desconectado ❌", "system");
   };
 }
 
@@ -177,24 +177,15 @@ function send() {
     text: msg
   }));
 
-  // ❌ YA NO mostramos aquí (evita duplicado)
-
   document.getElementById("message").value = "";
 }
 
-function disconnect() {
-  socket.close();
-}
-
 function log(text, type) {
-  const chat = document.getElementById("chat");
-
   const div = document.createElement("div");
   div.className = "msg " + type;
   div.innerText = text;
 
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+  document.getElementById("chat").appendChild(div);
 }
 </script>
 

@@ -1,7 +1,7 @@
 const http = require("http");
 const WebSocket = require("ws");
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 const PASSWORD = "1234";
 
 const server = http.createServer((req, res) => {
@@ -10,7 +10,7 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify({ status: "ok" }));
   } else {
     res.writeHead(200);
-    res.end("WebSocket server running");
+    res.end("WebSocket server running 🚀");
   }
 });
 
@@ -20,6 +20,8 @@ const rooms = {};
 
 wss.on("connection", (ws) => {
 
+  ws.isAuth = false;
+
   ws.send(JSON.stringify({
     type: "system",
     text: "Conectado al servidor 🚀"
@@ -27,17 +29,16 @@ wss.on("connection", (ws) => {
 
   ws.on("message", (msg) => {
 
-    // 🔥 AQUÍ ESTÁ LA CLAVE
     let data;
     try {
-      data = JSON.parse(msg.toString()); // 👈 convertir Buffer a string
-    } catch (err) {
-      console.log("Error parseando:", msg.toString());
+      data = JSON.parse(msg.toString());
+    } catch {
       return;
     }
 
     // 🔐 AUTH
     if (data.type === "auth") {
+
       if (data.password !== PASSWORD) {
         ws.send(JSON.stringify({
           type: "error",
@@ -46,61 +47,83 @@ wss.on("connection", (ws) => {
         return ws.close();
       }
 
+      ws.isAuth = true;
+
       ws.send(JSON.stringify({
         type: "system",
         text: "Acceso concedido ✅"
       }));
+
+      return;
     }
+
+    if (!ws.isAuth) return;
 
     // 👤 JOIN
     if (data.type === "join") {
-      ws.username = data.username;
-      ws.room = data.room;
+
+      ws.username = data.username || "Anon";
+      ws.mode = data.mode || "chat";
+      ws.room = "general";
 
       if (!rooms[ws.room]) rooms[ws.room] = [];
       rooms[ws.room].push(ws);
 
-      broadcast(ws.room, {
-        type: "system",
-        text: `${ws.username} se unió 👋`
-      });
-    }
-
-    // 💬 MENSAJES
-    if (data.type === "message") {
-      broadcast(ws.room, {
-        type: "message",
-        user: ws.username,
-        text: data.text
-      });
-
-      // 🤖 BOT
-      const txt = data.text.toLowerCase();
-
-      if (txt.includes("hola")) {
-        ws.send(JSON.stringify({
-          type: "bot",
-          text: "Hola 👋"
-        }));
+      if (ws.mode === "chat") {
+        broadcast(ws.room, {
+          type: "system",
+          text: `${ws.username} se unió 👋`
+        });
       }
 
-      if (txt.includes("hora")) {
+      return;
+    }
+
+    // 💬 MESSAGE
+    if (data.type === "message") {
+
+      // CHAT NORMAL
+      if (ws.mode === "chat") {
+        broadcast(ws.room, {
+          type: "message",
+          user: ws.username,
+          text: data.text
+        });
+        return;
+      }
+
+      // BOT
+      if (ws.mode === "bot") {
+
+        const txt = data.text.toLowerCase();
+        let reply = "No entendí 🤖";
+
+        if (txt.includes("hola")) reply = "Hola 👋 soy tu asistente";
+        else if (txt.includes("hora")) reply = new Date().toLocaleTimeString();
+        else if (txt.includes("info")) reply = "WebSocket + OpenShift 🚀";
+        else if (txt.includes("websocket")) reply = "Comunicación en tiempo real ⚡";
+
         ws.send(JSON.stringify({
           type: "bot",
-          text: "Son las " + new Date().toLocaleTimeString()
+          text: reply
         }));
+
+        return;
       }
     }
   });
 
   ws.on("close", () => {
+
     if (ws.room && rooms[ws.room]) {
       rooms[ws.room] = rooms[ws.room].filter(c => c !== ws);
 
-      broadcast(ws.room, {
-        type: "system",
-        text: `${ws.username} salió ❌`
-      });
+      if (ws.mode === "chat") {
+        broadcast(ws.room, {
+          type: "system",
+          text: `${ws.username} salió ❌`
+        });
+      }
     }
   });
 });
