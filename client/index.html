@@ -65,6 +65,7 @@ button {
   margin: 5px;
   border-radius: 10px;
   max-width: 75%;
+  word-wrap: break-word;
 }
 
 .me {
@@ -96,7 +97,7 @@ button {
 <h2>💬 Chat WebSocket</h2>
 
 <input id="url" value="wss://websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com">
-<input id="password" placeholder="Clave">
+<input id="password" placeholder="Clave (ej: 1234)">
 <input id="username" placeholder="Tu nombre">
 <input id="room" placeholder="Sala">
 
@@ -117,11 +118,13 @@ function connect() {
   socket.onopen = () => {
     log("Conectado 🚀", "system");
 
+    // 🔐 autenticación
     socket.send(JSON.stringify({
       type: "auth",
       password: document.getElementById("password").value
     }));
 
+    // 👤 unirse a sala
     socket.send(JSON.stringify({
       type: "join",
       username: document.getElementById("username").value,
@@ -139,7 +142,13 @@ function connect() {
     }
 
     if (data.type === "message") {
-      log(data.user + ": " + data.text, "other");
+      const currentUser = document.getElementById("username").value;
+
+      if (data.user === currentUser) {
+        log("Yo: " + data.text, "me");
+      } else {
+        log(data.user + ": " + data.text, "other");
+      }
     }
 
     if (data.type === "bot") {
@@ -168,7 +177,8 @@ function send() {
     text: msg
   }));
 
-  log("Yo: " + msg, "me");
+  // ❌ YA NO mostramos aquí (evita duplicado)
+
   document.getElementById("message").value = "";
 }
 
