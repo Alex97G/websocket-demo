@@ -10,72 +10,61 @@ body {
   font-family: Arial, sans-serif;
   background: linear-gradient(135deg, #0f172a, #1e293b);
   color: white;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
 }
 
 .container {
   width: 400px;
-  margin: 30px auto;
   background: #1e293b;
   padding: 20px;
   border-radius: 15px;
-  box-shadow: 0px 0px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 0 25px rgba(0,0,0,0.6);
 }
 
 h2 {
-  margin-bottom: 10px;
+  text-align: center;
 }
 
 input {
-  width: 90%;
+  width: 100%;
   padding: 10px;
-  margin: 5px;
+  margin: 5px 0;
   border-radius: 8px;
   border: none;
-  outline: none;
 }
 
 button {
-  padding: 10px 15px;
-  margin: 5px;
+  padding: 10px;
+  margin-top: 5px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  width: 100%;
   font-weight: bold;
 }
 
-.connect {
-  background: #22c55e;
-  color: white;
-}
-
-.disconnect {
-  background: #ef4444;
-  color: white;
-}
-
-.send {
-  background: #3b82f6;
-  color: white;
-}
+.connect { background: #22c55e; }
+.disconnect { background: #ef4444; }
+.send { background: #3b82f6; }
 
 #chat {
-  height: 300px;
+  height: 250px;
   overflow-y: auto;
   background: #020617;
   padding: 10px;
   border-radius: 10px;
-  margin-top: 10px;
-  text-align: left;
+  margin: 10px 0;
 }
 
 /* mensajes */
 .msg {
+  padding: 8px;
   margin: 5px;
-  padding: 8px 10px;
   border-radius: 10px;
-  max-width: 70%;
-  word-wrap: break-word;
+  max-width: 75%;
 }
 
 .me {
@@ -93,14 +82,9 @@ button {
 }
 
 .system {
-  color: #facc15;
-  font-size: 12px;
   text-align: center;
-}
-
-.status {
   font-size: 12px;
-  margin-top: 5px;
+  color: #facc15;
 }
 </style>
 
@@ -109,12 +93,12 @@ button {
 <body>
 
 <div class="container">
-<h2>💬 Chat WebSocket PRO</h2>
+<h2>💬 Chat WebSocket</h2>
 
 <input id="url" value="wss://websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com">
-<input id="password" placeholder="Clave (ej: 1234)">
+<input id="password" placeholder="Clave">
 <input id="username" placeholder="Tu nombre">
-<input id="room" placeholder="Código de sala">
+<input id="room" placeholder="Sala">
 
 <button class="connect" onclick="connect()">Conectar</button> <button class="disconnect" onclick="disconnect()">Salir</button>
 
@@ -122,8 +106,6 @@ button {
 
 <input id="message" placeholder="Escribe un mensaje...">
 <button class="send" onclick="send()">Enviar</button>
-
-<p class="status" id="status">Desconectado</p>
 </div>
 
 <script>
@@ -134,15 +116,12 @@ function connect() {
 
   socket.onopen = () => {
     log("Conectado 🚀", "system");
-    document.getElementById("status").innerText = "🟢 Conectado";
 
-    // autenticación
     socket.send(JSON.stringify({
       type: "auth",
       password: document.getElementById("password").value
     }));
 
-    // unirse a sala
     socket.send(JSON.stringify({
       type: "join",
       username: document.getElementById("username").value,
@@ -151,9 +130,13 @@ function connect() {
   };
 
   socket.onmessage = (e) => {
-    console.log("DATA:", e.data);
+    let data;
 
-    const data = JSON.parse(e.data);
+    try {
+      data = JSON.parse(e.data);
+    } catch {
+      return;
+    }
 
     if (data.type === "message") {
       log(data.user + ": " + data.text, "other");
@@ -174,7 +157,6 @@ function connect() {
 
   socket.onclose = () => {
     log("Desconectado ❌", "system");
-    document.getElementById("status").innerText = "🔴 Desconectado";
   };
 }
 
