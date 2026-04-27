@@ -1,3 +1,4 @@
+const { getAIResponse } = require("./ai");
 const http = require("http");
 const WebSocket = require("ws");
 
@@ -27,7 +28,7 @@ wss.on("connection", (ws) => {
     text: "Conectado al servidor 🚀"
   }));
 
-  ws.on("message", (msg) => {
+  ws.on("message", async (msg) => {
 
     let data;
     try {
@@ -95,21 +96,25 @@ wss.on("connection", (ws) => {
       // BOT
       if (ws.mode === "bot") {
 
-        const txt = data.text.toLowerCase();
-        let reply = "No entendí 🤖";
+  const userText = data.text;
 
-        if (txt.includes("hola")) reply = "Hola 👋 soy tu asistente";
-        else if (txt.includes("hora")) reply = new Date().toLocaleTimeString();
-        else if (txt.includes("info")) reply = "WebSocket + OpenShift 🚀";
-        else if (txt.includes("websocket")) reply = "Comunicación en tiempo real ⚡";
+  const reply = await getAIResponse(
+    userText,
+    `
+Usuario: ${ws.username}
+Sala: ${ws.room}
+Sistema: Chat en tiempo real con WebSocket desplegado en OpenShift
+Rol: Estás ayudando a un estudiante universitario
+`
+  );
 
-        ws.send(JSON.stringify({
-          type: "bot",
-          text: reply
-        }));
+  ws.send(JSON.stringify({
+    type: "bot",
+    text: reply
+  }));
 
-        return;
-      }
+  return;
+}
     }
   });
 

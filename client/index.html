@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -81,8 +80,6 @@ input, button {
   <button id="botBtn" onclick="setMode('bot')">🤖 Bot</button>
 </div>
 
-<!-- 🔒 URL fija -->
-
 <input id="password" placeholder="Clave (1234)">
 <input id="username" placeholder="Usuario">
 <input id="room" placeholder="Sala (ej: 1002)">
@@ -105,13 +102,10 @@ input, button {
 let socket;
 let mode = "chat";
 
-// 🔗 URL FIJA (NO TOCAR)
 const WS_URL = "wss://websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com";
 
-// 📱 URL del cliente (para QR)
 const BASE_URL = window.location.origin + window.location.pathname;
 
-// 🔄 detectar sala en URL
 const params = new URLSearchParams(window.location.search);
 if (params.get("room")) {
   document.getElementById("room").value = params.get("room");
@@ -139,7 +133,11 @@ function connect() {
 
   const room = document.getElementById("room").value;
 
-  // 🔥 generar QR con sala
+  if (!room || !document.getElementById("username").value) {
+    alert("Completa usuario y sala");
+    return;
+  }
+
   const shareURL = BASE_URL + "?room=" + encodeURIComponent(room);
 
   document.getElementById("qrImg").src =
@@ -163,6 +161,14 @@ function connect() {
     }));
 
     log("Conectado 🚀", "system");
+  };
+
+  socket.onerror = () => {
+    log("Error de conexión ❌", "system");
+  };
+
+  socket.onclose = () => {
+    log("Desconectado ⚠️", "system");
   };
 
   socket.onmessage = (e) => {
@@ -189,7 +195,15 @@ function connect() {
 }
 
 function send() {
-  const msg = document.getElementById("message").value;
+
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    alert("No estás conectado");
+    return;
+  }
+
+  const msg = document.getElementById("message").value.trim();
+
+  if (!msg) return;
 
   socket.send(JSON.stringify({
     type: "message",
@@ -204,7 +218,11 @@ function log(text, type) {
   div.className = "msg " + type;
   div.innerText = text;
 
-  document.getElementById("chat").appendChild(div);
+  const chat = document.getElementById("chat");
+  chat.appendChild(div);
+
+  // 🔥 auto scroll
+  chat.scrollTop = chat.scrollHeight;
 }
 </script>
 
