@@ -1,45 +1,46 @@
 const axios = require("axios");
 
-// 🤖 BOT PROFESOR / ASISTENTE
+const API_KEY = process.env.OPENAI_API_KEY;
+
 async function getAIResponse(message, context = "") {
-
   try {
-    const response = await axios.post("http://localhost:11434/api/generate", {
-      model: "llama3",
-      prompt: `
+    const response = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `
 Eres un PROFESOR y ASISTENTE TÉCNICO experto en:
-
 - Programación
 - Redes
 - WebSockets
 - OpenShift
 - Desarrollo web
 
-REGLAS:
-- Explica paso a paso
-- Usa ejemplos simples
-- Si es técnico, responde como ingeniero
-- Si el usuario está perdido, simplifica
-- No respondas muy largo
-- Usa listas cuando sea necesario
-- Responde en español
+Explica claro, breve y con ejemplos simples.
+            `
+          },
+          {
+            role: "user",
+            content: message
+          }
+        ]
+      },
+      {
+        headers: {
+          "Authorization": `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
 
-CONTEXTO:
-${context}
-
-PREGUNTA DEL USUARIO:
-${message}
-
-RESPUESTA:
-      `,
-      stream: false
-    });
-
-    return response.data.response?.trim() || "Sin respuesta 🤖";
+    return response.data.choices[0].message.content;
 
   } catch (error) {
     console.log("Error IA:", error.message);
-    return "🤖 IA no disponible en este entorno";
+    return "🤖 Error conectando a IA";
   }
 }
 
