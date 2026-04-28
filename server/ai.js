@@ -1,17 +1,23 @@
 const axios = require("axios");
 
-const API_KEY = process.env.OPENAI_API_KEY;
+const API_KEY = process.env.GEMINI_API_KEY;
 
 async function getAIResponse(message, context = "") {
+
+  if (!API_KEY) {
+    return "🤖 Falta API KEY de Gemini";
+  }
+
   try {
     const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
       {
-        model: "gpt-4o-mini",
-        messages: [
+        contents: [
           {
-            role: "system",
-            content: `
+            role: "user",
+            parts: [
+              {
+                text: `
 Eres un PROFESOR y ASISTENTE TÉCNICO experto en:
 - Programación
 - Redes
@@ -19,28 +25,28 @@ Eres un PROFESOR y ASISTENTE TÉCNICO experto en:
 - OpenShift
 - Desarrollo web
 
-Explica claro, breve y con ejemplos simples.
-            `
-          },
-          {
-            role: "user",
-            content: message
+CONTEXTO:
+${context}
+
+PREGUNTA:
+${message}
+
+Responde claro y breve.
+                `
+              }
+            ]
           }
         ]
-      },
-      {
-        headers: {
-          "Authorization": `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        }
       }
     );
 
-    return response.data.choices[0].message.content;
+    return response.data?.candidates?.[0]?.content?.parts?.[0]?.text
+      || "Sin respuesta 🤖";
 
   } catch (error) {
-    console.log("Error IA:", error.message);
-    return "🤖 Error conectando a IA";
+    console.log("Error IA:", error.response?.data || error.message);
+
+    return "🤖 Error conectando con Google AI";
   }
 }
 
