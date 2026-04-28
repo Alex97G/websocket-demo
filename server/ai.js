@@ -1,23 +1,22 @@
 const axios = require("axios");
 
-const API_KEY = process.env.GEMINI_API_KEY;
+const API_KEY = process.env.GROQ_API_KEY;
 
 async function getAIResponse(message, context = "") {
 
   if (!API_KEY) {
-    return "🤖 Falta API KEY de Gemini";
+    return "🤖 Falta API KEY de Groq";
   }
 
   try {
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+      "https://api.groq.com/openai/v1/chat/completions",
       {
-        contents: [
+        model: "llama-3.3-70b-versatile",
+        messages: [
           {
-            role: "user",
-            parts: [
-              {
-                text: `
+            role: "system",
+            content: `
 Eres un PROFESOR y ASISTENTE TÉCNICO experto en:
 - Programación
 - Redes
@@ -28,25 +27,29 @@ Eres un PROFESOR y ASISTENTE TÉCNICO experto en:
 CONTEXTO:
 ${context}
 
-PREGUNTA:
-${message}
-
 Responde claro y breve.
-                `
-              }
-            ]
+            `
+          },
+          {
+            role: "user",
+            content: message
           }
-        ]
+        ],
+        max_tokens: 1000
+      },
+      {
+        headers: {
+          "Authorization": `Bearer ${API_KEY}`,
+          "Content-Type": "application/json"
+        }
       }
     );
 
-    return response.data?.candidates?.[0]?.content?.parts?.[0]?.text
-      || "Sin respuesta 🤖";
+    return response.data?.choices?.[0]?.message?.content || "Sin respuesta 🤖";
 
   } catch (error) {
     console.log("Error IA:", error.response?.data || error.message);
-
-    return "🤖 Error conectando con Google AI";
+    return "🤖 Error conectando con Groq";
   }
 }
 
