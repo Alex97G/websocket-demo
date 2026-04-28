@@ -2,128 +2,460 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Chat PRO</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat · Live</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-body {
-  font-family: Arial;
-  background: linear-gradient(135deg, #0f172a, #1e293b);
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-.container {
-  width: 420px;
-  background: #1e293b;
-  padding: 20px;
-  border-radius: 15px;
-}
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: #e8e6df;
+    --text: #1a1917;
+    --text-muted: #9a9690;
+    --accent: #2d6a4f;
+    --accent-light: #e8f4f0;
+    --me: #2d6a4f;
+    --me-text: #ffffff;
+    --other: #ffffff;
+    --other-text: #1a1917;
+    --bot: #1a1917;
+    --bot-text: #ffffff;
+    --system: #9a9690;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  }
 
-.tabs {
-  display: flex;
-  gap: 5px;
-}
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
 
-.tabs button {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  cursor: pointer;
-  border-radius: 8px;
-}
+  /* ── LAYOUT ── */
+  .app {
+    width: 100%;
+    max-width: 860px;
+    height: min(90dvh, 680px);
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: 1fr;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
 
-.active { background: #22c55e; }
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: var(--surface2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px;
+    gap: 20px;
+  }
 
-#chat {
-  height: 250px;
-  overflow-y: auto;
-  background: #020617;
-  margin: 10px 0;
-  padding: 10px;
-  border-radius: 10px;
-}
+  .logo {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
 
-.msg { margin: 5px; padding: 8px; border-radius: 10px; max-width: 70%; }
-.me { background: #2563eb; margin-left: auto; }
-.other { background: #334155; }
-.bot { background: #7c3aed; }
-.system { text-align: center; font-size: 12px; color: #facc15; }
+  .sidebar-section label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 8px;
+  }
 
-input, button {
-  width: 100%;
-  margin: 5px 0;
-  padding: 10px;
-  border-radius: 8px;
-  border: none;
-}
+  .input-clean {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .input-clean:focus { border-color: var(--accent); }
+  .input-clean::placeholder { color: var(--text-muted); }
 
-#qr {
-  text-align:center;
-  margin-top:10px;
-}
+  .mode-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--border);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+  }
+  .mode-tab {
+    flex: 1;
+    padding: 7px;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mode-tab.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .btn-connect {
+    width: 100%;
+    padding: 10px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-connect:hover { opacity: 0.88; }
+  .btn-connect:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Users list */
+  .users-section { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+  .users-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .user-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .user-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #52b788;
+    flex-shrink: 0;
+  }
+
+  /* Status */
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .status-dot.online { background: #52b788; }
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* ── MAIN CHAT ── */
+  .main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .chat-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .chat-header-title { font-size: 14px; font-weight: 500; }
+  .chat-header-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scroll-behavior: smooth;
+  }
+
+  /* ── MESSAGES ── */
+  .msg-row {
+    display: flex;
+    flex-direction: column;
+    max-width: 72%;
+    animation: fadeUp 0.2s ease;
+  }
+  .msg-row.me { align-self: flex-end; align-items: flex-end; }
+  .msg-row.other { align-self: flex-start; align-items: flex-start; }
+  .msg-row.bot { align-self: flex-start; align-items: flex-start; max-width: 85%; }
+  .msg-row.system { align-self: center; max-width: 100%; }
+
+  .msg-bubble {
+    padding: 9px 13px;
+    border-radius: 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+  .me .msg-bubble { background: var(--me); color: var(--me-text); border-bottom-right-radius: 4px; }
+  .other .msg-bubble { background: var(--other); color: var(--other-text); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .bot .msg-bubble { background: var(--bot); color: var(--bot-text); border-bottom-left-radius: 4px; font-family: 'DM Mono', monospace; font-size: 12.5px; white-space: pre-wrap; }
+  .system .msg-bubble { background: transparent; color: var(--system); font-size: 11.5px; text-align: center; }
+
+  .msg-meta { font-size: 10.5px; color: var(--text-muted); margin-top: 3px; padding: 0 4px; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── INPUT AREA ── */
+  .input-area {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .emoji-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .emoji-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 7px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background 0.1s;
+    line-height: 1;
+  }
+  .emoji-btn:hover { background: var(--border); }
+
+  .input-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .msg-input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface2);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13.5px;
+    color: var(--text);
+    outline: none;
+    resize: none;
+    min-height: 42px;
+    max-height: 100px;
+    transition: border-color 0.15s;
+    line-height: 1.4;
+  }
+  .msg-input:focus { border-color: var(--accent); background: var(--surface); }
+  .msg-input::placeholder { color: var(--text-muted); }
+
+  .btn-send {
+    width: 42px; height: 42px;
+    border-radius: 12px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-send:hover { opacity: 0.85; }
+
+  /* QR */
+  .qr-wrap { text-align: center; margin-top: auto; }
+  .qr-wrap img { width: 80px; border-radius: 8px; border: 1px solid var(--border); }
+  .qr-label { font-size: 10.5px; color: var(--text-muted); margin-bottom: 5px; }
+
+  /* ── MOBILE ── */
+  @media (max-width: 600px) {
+    body { padding: 0; align-items: stretch; }
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr;
+      height: 100dvh;
+      border-radius: 0;
+      border: none;
+      max-width: 100%;
+    }
+    .sidebar {
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 14px;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .logo { display: none; }
+    .sidebar-section { flex: 1; min-width: 120px; }
+    .sidebar-section label { margin-bottom: 4px; }
+    .users-section { display: none; }
+    .qr-wrap { display: none; }
+    .btn-connect { min-width: 90px; }
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 </style>
-
 </head>
-
 <body>
 
-<div class="container">
+<div class="app">
 
-<h2>💬 Chat Inteligente</h2>
-<p id="modeLabel" style="text-align:center;">Modo: Chat 👥</p>
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="logo">Chat · Live</div>
 
-<div class="tabs">
-  <button id="chatBtn" class="active" onclick="setMode('chat')">👥 Chat</button>
-  <button id="botBtn" onclick="setMode('bot')">🤖 Bot</button>
-</div>
+    <div class="sidebar-section">
+      <label>Usuario</label>
+      <input class="input-clean" id="username" placeholder="Tu nombre">
+    </div>
 
-<input id="password" placeholder="Clave (1234)">
-<input id="username" placeholder="Usuario">
-<input id="room" placeholder="Sala (ej: 1002)">
+    <div class="sidebar-section">
+      <label>Sala</label>
+      <input class="input-clean" id="room" placeholder="ej: 1002">
+    </div>
 
-<button onclick="connect()">Conectar</button>
+    <div class="sidebar-section">
+      <label>Modo</label>
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="chatTab" onclick="setMode('chat')">👥 Chat</button>
+        <button class="mode-tab" id="botTab" onclick="setMode('bot')">🤖 Bot</button>
+      </div>
+    </div>
 
-<div id="chat"></div>
+    <button class="btn-connect" onclick="connect()" id="connectBtn">Conectar</button>
 
-<input id="message" placeholder="Mensaje...">
-<button onclick="send()">Enviar</button>
+    <div class="status-row">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Desconectado</span>
+    </div>
 
-<div id="qr">
-  <p>📱 Comparte esta sala</p>
-  <img id="qrImg" width="150">
-</div>
+    <div class="users-section">
+      <label style="font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:8px;">Conectados</label>
+      <div class="users-list" id="usersList"></div>
+    </div>
+
+    <div class="qr-wrap">
+      <div class="qr-label">Compartir sala</div>
+      <img id="qrImg" src="" alt="">
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="chat-header">
+      <div>
+        <div class="chat-header-title" id="headerTitle">Sin sala</div>
+        <div class="chat-header-sub" id="headerSub">Conecta para empezar</div>
+      </div>
+    </div>
+
+    <div class="chat-messages" id="chat"></div>
+
+    <div class="input-area">
+      <div class="emoji-bar">
+        <button class="emoji-btn" onclick="addEmoji('👍')">👍</button>
+        <button class="emoji-btn" onclick="addEmoji('😂')">😂</button>
+        <button class="emoji-btn" onclick="addEmoji('🔥')">🔥</button>
+        <button class="emoji-btn" onclick="addEmoji('❤️')">❤️</button>
+        <button class="emoji-btn" onclick="addEmoji('✅')">✅</button>
+        <button class="emoji-btn" onclick="addEmoji('🤔')">🤔</button>
+        <button class="emoji-btn" onclick="addEmoji('👏')">👏</button>
+        <button class="emoji-btn" onclick="addEmoji('😮')">😮</button>
+      </div>
+      <div class="input-row">
+        <textarea class="msg-input" id="message" placeholder="Escribe un mensaje..." rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="btn-send" onclick="send()">↑</button>
+      </div>
+    </div>
+  </div>
 
 </div>
 
 <script>
 let socket;
 let mode = "chat";
+let myUsername = "";
+let connectedUsers = [];
 
 const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") +
   "websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com/";
-  
+
 const BASE_URL = window.location.origin + window.location.pathname;
 
+// Leer sala de URL
 const params = new URLSearchParams(window.location.search);
-if (params.get("room")) {
-  document.getElementById("room").value = params.get("room");
+if (params.get("room")) document.getElementById("room").value = params.get("room");
+
+// Sonido
+function playSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880;
+    o.type = "sine";
+    g.gain.setValueAtTime(0.1, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    o.start(ctx.currentTime);
+    o.stop(ctx.currentTime + 0.3);
+  } catch(e) {}
 }
 
 function setMode(m) {
   mode = m;
-
-  document.getElementById("chatBtn").classList.remove("active");
-  document.getElementById("botBtn").classList.remove("active");
-  document.getElementById(m + "Btn").classList.add("active");
-
-  document.getElementById("modeLabel").innerText =
-    m === "bot" ? "Modo: Bot 🤖" : "Modo: Chat 👥";
-
+  document.getElementById("chatTab").classList.toggle("active", m === "chat");
+  document.getElementById("botTab").classList.toggle("active", m === "bot");
   document.getElementById("chat").innerHTML = "";
-
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.close();
     setTimeout(connect, 300);
@@ -131,100 +463,152 @@ function setMode(m) {
 }
 
 function connect() {
+  const room = document.getElementById("room").value.trim();
+  myUsername = document.getElementById("username").value.trim();
 
-  const room = document.getElementById("room").value;
+  if (!room || !myUsername) { alert("Completa usuario y sala"); return; }
 
-  if (!room || !document.getElementById("username").value) {
-    alert("Completa usuario y sala");
-    return;
-  }
-
+  // QR
   const shareURL = BASE_URL + "?room=" + encodeURIComponent(room);
-
   document.getElementById("qrImg").src =
-    "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" +
-    encodeURIComponent(shareURL);
+    "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" + encodeURIComponent(shareURL);
+
+  // Header
+  document.getElementById("headerTitle").textContent = "Sala · " + room;
+  document.getElementById("headerSub").textContent = mode === "bot" ? "Modo asistente IA" : "Chat en grupo";
+
+  // Disable button
+  document.getElementById("connectBtn").disabled = true;
+  document.getElementById("connectBtn").textContent = "Conectando...";
 
   socket = new WebSocket(WS_URL);
 
   socket.onopen = () => {
-
-    socket.send(JSON.stringify({
-      type: "auth",
-      password: document.getElementById("password").value
-    }));
-
-    socket.send(JSON.stringify({
-      type: "join",
-      username: document.getElementById("username").value,
-      room: room,
-      mode: mode
-    }));
-
-    log("Conectado 🚀", "system");
+    // Auth con password fija (invisible al usuario)
+    socket.send(JSON.stringify({ type: "auth", password: "1234" }));
+    socket.send(JSON.stringify({ type: "join", username: myUsername, room, mode }));
+    setStatus(true);
+    document.getElementById("connectBtn").textContent = "Reconectar";
+    document.getElementById("connectBtn").disabled = false;
+    log("Conectado a la sala " + room, "system");
   };
 
   socket.onerror = () => {
     log("Error de conexión ❌", "system");
+    setStatus(false);
+    document.getElementById("connectBtn").disabled = false;
+    document.getElementById("connectBtn").textContent = "Conectar";
   };
 
   socket.onclose = () => {
     log("Desconectado ⚠️", "system");
+    setStatus(false);
+    document.getElementById("connectBtn").disabled = false;
+    document.getElementById("connectBtn").textContent = "Conectar";
+    connectedUsers = [];
+    renderUsers();
   };
 
   socket.onmessage = (e) => {
     const data = JSON.parse(e.data);
 
     if (data.type === "message") {
-      const user = document.getElementById("username").value;
-
-      if (data.user === user) {
-        log("Yo: " + data.text, "me");
-      } else {
-        log(data.user + ": " + data.text, "other");
-      }
+      const isMe = data.user === myUsername;
+      log(data.text, isMe ? "me" : "other", data.user, isMe);
+      if (!isMe) { playSound(); trackUser(data.user); }
     }
 
     if (data.type === "bot") {
-      log("🤖 " + data.text, "bot");
+      log(data.text, "bot", "🤖 Asistente");
+      playSound();
     }
 
     if (data.type === "system") {
+      // Track joins/leaves
+      const joinMatch = data.text.match(/^(.+) se unió/);
+      const leaveMatch = data.text.match(/^(.+) salió/);
+      if (joinMatch) trackUser(joinMatch[1]);
+      if (leaveMatch) removeUser(leaveMatch[1]);
       log(data.text, "system");
     }
   };
 }
 
-function send() {
+function setStatus(online) {
+  document.getElementById("statusDot").classList.toggle("online", online);
+  document.getElementById("statusText").textContent = online ? "En línea" : "Desconectado";
+}
 
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    alert("No estás conectado");
-    return;
+function trackUser(name) {
+  if (!connectedUsers.includes(name)) {
+    connectedUsers.push(name);
+    renderUsers();
+  }
+}
+
+function removeUser(name) {
+  connectedUsers = connectedUsers.filter(u => u !== name);
+  renderUsers();
+}
+
+function renderUsers() {
+  const list = document.getElementById("usersList");
+  list.innerHTML = "";
+  const all = myUsername ? [myUsername, ...connectedUsers.filter(u => u !== myUsername)] : connectedUsers;
+  all.forEach(u => {
+    const div = document.createElement("div");
+    div.className = "user-item";
+    div.innerHTML = `<div class="user-dot"></div><span>${u}${u === myUsername ? " (tú)" : ""}</span>`;
+    list.appendChild(div);
+  });
+}
+
+function send() {
+  if (!socket || socket.readyState !== WebSocket.OPEN) { alert("No estás conectado"); return; }
+  const msg = document.getElementById("message").value.trim();
+  if (!msg) return;
+  socket.send(JSON.stringify({ type: "message", text: msg }));
+  document.getElementById("message").value = "";
+  autoResize(document.getElementById("message"));
+}
+
+function addEmoji(e) {
+  const input = document.getElementById("message");
+  input.value += e;
+  input.focus();
+}
+
+function handleKey(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+}
+
+function autoResize(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 100) + "px";
+}
+
+function log(text, type, user = "", isMe = false) {
+  const chat = document.getElementById("chat");
+  const row = document.createElement("div");
+  row.className = "msg-row " + type;
+
+  if (type === "system") {
+    row.innerHTML = `<div class="msg-bubble">${text}</div>`;
+  } else {
+    const now = new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+    const meta = user && !isMe ? `<div class="msg-meta">${user} · ${now}</div>` : `<div class="msg-meta">${now}</div>`;
+    row.innerHTML = `<div class="msg-bubble">${text}</div>${meta}`;
   }
 
-  const msg = document.getElementById("message").value.trim();
-
-  if (!msg) return;
-
-  socket.send(JSON.stringify({
-    type: "message",
-    text: msg
-  }));
-
-  document.getElementById("message").value = "";
-}
-
-function log(text, type) {
-  const div = document.createElement("div");
-  div.className = "msg " + type;
-  div.innerText = text;
-
-  const chat = document.getElementById("chat");
-  chat.appendChild(div);
-
-  // 🔥 auto scroll
+  chat.appendChild(row);
   chat.scrollTop = chat.scrollHeight;
 }
+
+// Init user tracking with self
+document.getElementById("username").addEventListener("change", () => {
+  myUsername = document.getElementById("username").value.trim();
+  renderUsers();
+});
 </script>
 
 </body>
