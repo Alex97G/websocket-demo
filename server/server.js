@@ -14,6 +14,10 @@ const DB_FILE = path.join(__dirname, "messages-db.json");
 
 let clients = new Map();
 
+// ==========================
+// BASE DE DATOS SIMPLE JSON
+// ==========================
+
 function loadDatabase() {
   try {
     if (!fs.existsSync(DB_FILE)) {
@@ -38,9 +42,17 @@ function saveDatabase(db) {
 
 let db = loadDatabase();
 
+// ==========================
+// RUTA HTTP DE PRUEBA
+// ==========================
+
 app.get("/", (req, res) => {
-  res.send("Servidor WebSocket Demo activo con salas, chatbot, historial y notificaciones.");
+  res.send("Servidor WebSocket Demo activo con salas, historial, chatbot Groq y notificaciones.");
 });
+
+// ==========================
+// UTILIDADES
+// ==========================
 
 function now() {
   return new Date().toISOString();
@@ -93,6 +105,8 @@ function getUsersInRoom(room) {
 }
 
 function broadcastUsers(room) {
+  if (!room) return;
+
   broadcastToRoom(room, {
     type: "users",
     users: getUsersInRoom(room)
@@ -102,6 +116,7 @@ function broadcastUsers(room) {
 function saveMessage(messageData) {
   db.messages.push(messageData);
 
+  // Limita el archivo para que no crezca demasiado
   if (db.messages.length > 1500) {
     db.messages = db.messages.slice(db.messages.length - 1500);
   }
@@ -144,43 +159,105 @@ function createBotMessage(room, text) {
   };
 }
 
-function getBotResponse(text) {
-  const msg = text.toLowerCase();
+// ==========================
+// CHATBOT CON GROQ
+// ==========================
 
-  if (msg.includes("hola") || msg.includes("buenas")) {
-    return "Hola 👋 Soy el asistente del chat. Puedes preguntarme sobre WebSocket, salas, historial o notificaciones.";
+async function getGroqResponse(text, context = {}) {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    return "No tengo configurada la API key de Groq en el servidor. Agrega la variable GROQ_API_KEY en OpenShift para activar el asistente.";
   }
 
-  if (msg.includes("websocket") || msg.includes("web socket")) {
-    return "WebSocket permite una comunicación bidireccional y persistente entre cliente y servidor. A diferencia de HTTP tradicional, la conexión queda abierta y el servidor puede enviar datos en tiempo real.";
+  const room = context.room || "general";
+  const username = context.username || "Usuario";
+
+  // Contexto corto de la sala para que el bot responda mejor
+  const recentMessages = getRoomHistory(room)
+    .filter((msg) => msg.type === "message" || msg.type === "bot")
+    .slice(-8)
+    .map((msg) => {
+      const sender = msg.user || "Usuario";
+      const content = msg.text || "";
+      return `${sender}: ${content}`;
+    })
+    .join("\n");
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + apiKey,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Eres un chatbot asistente dentro de un proyecto académico llamado WebSocket Demo. " +
+            "Responde siempre en español. Sé claro, amable y útil. " +
+            "Puedes responder preguntas generales del usuario, no solo del proyecto. " +
+            "Cuando pregunten sobre el proyecto, explica WebSocket, salas, historial, base de datos, notificaciones, Node.js, OpenShift y chatbot. " +
+            "No digas que eres un modelo de Groq salvo que te lo pregunten. " +
+            "Si no sabes algo, dilo de manera natural y ofrece una alternativa."
+        },
+        {
+          role: "user",
+          content:
+            "Contexto del chat:\n" +
+            "Usuario actual: " + username + "\n" +
+            "Sala actual: " + room + "\n\n" +
+            "Mensajes recientes de la sala:\n" +
+            (recentMessages || "No hay mensajes recientes.") +
+            "\n\n" +
+            "Mensaje del usuario:\n" +
+            text
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 350
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.log("Error Groq:", errorText);
+
+    if (response.status === 401) {
+      return "La API key de Groq no es válida o no está configurada correctamente.";
+    }
+
+    if (response.status === 429) {
+      return "Groq está limitando las solicitudes por ahora. Intenta nuevamente en unos segundos.";
+    }
+
+    return "Tuve un problema consultando la API de Groq. Revisa la API key, el modelo o la conexión del servidor.";
   }
 
-  if (msg.includes("sala") || msg.includes("salas")) {
-    return "Las salas separan las conversaciones. Cada usuario recibe únicamente los mensajes de la sala en la que está conectado.";
-  }
+  const data = await response.json();
 
-  if (msg.includes("historial") || msg.includes("base de datos") || msg.includes("guardar")) {
-    return "El historial se guarda en un archivo JSON que funciona como base de datos simple. Cuando un usuario entra a una sala, el servidor consulta los últimos mensajes y los envía automáticamente.";
-  }
-
-  if (msg.includes("notificacion") || msg.includes("notificaciones")) {
-    return "Las notificaciones del navegador avisan cuando llega un mensaje nuevo mientras el usuario no está mirando la pestaña.";
-  }
-
-  if (msg.includes("node") || msg.includes("node.js")) {
-    return "Node.js se usa para ejecutar el servidor WebSocket. En este proyecto recibe mensajes, gestiona salas, guarda historial y responde con el chatbot.";
-  }
-
-  if (msg.includes("openshift")) {
-    return "OpenShift permite desplegar el cliente y el servidor en la nube para que el chat funcione desde diferentes dispositivos conectados a internet.";
-  }
-
-  if (msg.includes("ayuda")) {
-    return "Puedes usar el modo Chat para hablar con otros usuarios o el modo Bot para hacer preguntas. También puedes probar: websocket, salas, historial, notificaciones, Node.js u OpenShift.";
-  }
-
-  return "Soy el asistente del sistema 🤖. Puedes preguntarme sobre WebSocket, salas, historial, base de datos, notificaciones, Node.js u OpenShift.";
+  return (
+    data.choices &&
+    data.choices[0] &&
+    data.choices[0].message &&
+    data.choices[0].message.content
+  ) || "No recibí una respuesta válida del asistente.";
 }
+
+async function getBotResponse(text, context = {}) {
+  try {
+    return await getGroqResponse(text, context);
+  } catch (error) {
+    console.log("Error en getBotResponse:", error.message);
+    return "Ocurrió un error al generar la respuesta del asistente.";
+  }
+}
+
+// ==========================
+// WEBSOCKET
+// ==========================
 
 wss.on("connection", (ws) => {
   console.log("Cliente conectado");
@@ -197,7 +274,7 @@ wss.on("connection", (ws) => {
     text: "Conectado al servidor WebSocket."
   });
 
-  ws.on("message", (message) => {
+  ws.on("message", async (message) => {
     let data;
 
     try {
@@ -214,7 +291,10 @@ wss.on("connection", (ws) => {
 
     if (!clientInfo) return;
 
-    // Compatible con tu index.html actual
+    // ==========================
+    // AUTENTICACIÓN BÁSICA
+    // ==========================
+
     if (data.type === "auth") {
       const password = String(data.password || "");
 
@@ -243,6 +323,10 @@ wss.on("connection", (ws) => {
       });
       return;
     }
+
+    // ==========================
+    // ENTRAR A SALA
+    // ==========================
 
     if (data.type === "join") {
       const oldRoom = clientInfo.room;
@@ -286,6 +370,10 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    // ==========================
+    // MENSAJE DE CHAT / BOT
+    // ==========================
+
     if (data.type === "message") {
       const text = cleanText(data.text || data.message, 500);
 
@@ -308,28 +396,43 @@ wss.on("connection", (ws) => {
       saveMessage(userMessage);
       broadcastToRoom(clientInfo.room, userMessage);
 
+      const lowerText = text.toLowerCase();
+
       const shouldBotReply =
         clientInfo.mode === "bot" ||
-        text.toLowerCase().startsWith("/bot") ||
-        text.toLowerCase().includes("@bot");
+        lowerText.startsWith("/bot") ||
+        lowerText.includes("@bot");
 
       if (shouldBotReply) {
         const cleanQuestion = text
-          .replace("/bot", "")
-          .replace("@bot", "")
+          .replace(/\/bot/gi, "")
+          .replace(/@bot/gi, "")
           .trim();
 
-        const botText = getBotResponse(cleanQuestion || text);
+        const thinkingMessage = createBotMessage(
+          clientInfo.room,
+          "Estoy pensando..."
+        );
+
+        broadcastToRoom(clientInfo.room, thinkingMessage);
+
+        const botText = await getBotResponse(cleanQuestion || text, {
+          username: clientInfo.username,
+          room: clientInfo.room
+        });
+
         const botMessage = createBotMessage(clientInfo.room, botText);
 
-        setTimeout(() => {
-          saveMessage(botMessage);
-          broadcastToRoom(clientInfo.room, botMessage);
-        }, 450);
+        saveMessage(botMessage);
+        broadcastToRoom(clientInfo.room, botMessage);
       }
 
       return;
     }
+
+    // ==========================
+    // CAMBIAR DE SALA
+    // ==========================
 
     if (data.type === "changeRoom") {
       const oldRoom = clientInfo.room;
@@ -376,11 +479,16 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    // ==========================
+    // ESCRIBIENDO
+    // ==========================
+
     if (data.type === "typing") {
       broadcastToRoom(clientInfo.room, {
         type: "typing",
         user: clientInfo.username
       });
+
       return;
     }
   });
@@ -388,7 +496,7 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     const clientInfo = clients.get(ws);
 
-    if (clientInfo && clientInfo.room && clientInfo.username) {
+    if (clientInfo && clientInfo.room && clientInfo.username && clientInfo.authenticated) {
       const exitMessage = createSystemMessage(
         clientInfo.room,
         `${clientInfo.username} salió del chat.`
@@ -411,6 +519,10 @@ wss.on("connection", (ws) => {
     console.log("Error WebSocket:", error.message);
   });
 });
+
+// ==========================
+// INICIAR SERVIDOR
+// ==========================
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log("Servidor WebSocket Demo escuchando en puerto " + PORT);
