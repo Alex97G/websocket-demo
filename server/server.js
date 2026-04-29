@@ -47,7 +47,7 @@ let db = loadDatabase();
 // ==========================
 
 app.get("/", (req, res) => {
-  res.send("Servidor WebSocket Demo activo con salas, historial, chatbot Groq y notificaciones.");
+  res.send("Servidor WebSocket Demo activo con salas, historial, chatbot Groq privado y notificaciones.");
 });
 
 // ==========================
@@ -78,7 +78,8 @@ function broadcastToRoom(room, data) {
     if (
       client.readyState === WebSocket.OPEN &&
       clientInfo.room === room &&
-      clientInfo.authenticated
+      clientInfo.authenticated &&
+      clientInfo.mode === "chat"
     ) {
       client.send(message);
     }
@@ -107,16 +108,27 @@ function getUsersInRoom(room) {
 function broadcastUsers(room) {
   if (!room) return;
 
-  broadcastToRoom(room, {
+  const payload = {
     type: "users",
     users: getUsersInRoom(room)
+  };
+
+  const message = JSON.stringify(payload);
+
+  clients.forEach((clientInfo, client) => {
+    if (
+      client.readyState === WebSocket.OPEN &&
+      clientInfo.room === room &&
+      clientInfo.authenticated
+    ) {
+      client.send(message);
+    }
   });
 }
 
 function saveMessage(messageData) {
   db.messages.push(messageData);
 
-  // Limita el archivo para que no crezca demasiado
   if (db.messages.length > 1500) {
     db.messages = db.messages.slice(db.messages.length - 1500);
   }
@@ -173,17 +185,6 @@ async function getGroqResponse(text, context = {}) {
   const room = context.room || "general";
   const username = context.username || "Usuario";
 
-  // Contexto corto de la sala para que el bot responda mejor
-  const recentMessages = getRoomHistory(room)
-    .filter((msg) => msg.type === "message" || msg.type === "bot")
-    .slice(-8)
-    .map((msg) => {
-      const sender = msg.user || "Usuario";
-      const content = msg.text || "";
-      return `${sender}: ${content}`;
-    })
-    .join("\n");
-
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -199,19 +200,14 @@ async function getGroqResponse(text, context = {}) {
             "Eres un chatbot asistente dentro de un proyecto académico llamado WebSocket Demo. " +
             "Responde siempre en español. Sé claro, amable y útil. " +
             "Puedes responder preguntas generales del usuario, no solo del proyecto. " +
-            "Cuando pregunten sobre el proyecto, explica WebSocket, salas, historial, base de datos, notificaciones, Node.js, OpenShift y chatbot. " +
-            "No digas que eres un modelo de Groq salvo que te lo pregunten. " +
-            "Si no sabes algo, dilo de manera natural y ofrece una alternativa."
+            "Si preguntan sobre el proyecto, explica WebSocket, salas, historial, base de datos, notificaciones, Node.js, OpenShift y chatbot. " +
+            "No inventes datos privados. Si no sabes algo, dilo de manera natural."
         },
         {
           role: "user",
           content:
-            "Contexto del chat:\n" +
             "Usuario actual: " + username + "\n" +
             "Sala actual: " + room + "\n\n" +
-            "Mensajes recientes de la sala:\n" +
-            (recentMessages || "No hay mensajes recientes.") +
-            "\n\n" +
             "Mensaje del usuario:\n" +
             text
         }
@@ -325,7 +321,7 @@ wss.on("connection", (ws) => {
     }
 
     // ==========================
-    // ENTRAR A SALA
+    // ENTRAR A SALA / MODO
     // ==========================
 
     if (data.type === "join") {
@@ -348,19 +344,26 @@ wss.on("connection", (ws) => {
         mode: clientInfo.mode
       });
 
-      sendTo(ws, {
-        type: "history",
-        room: clientInfo.room,
-        messages: getRoomHistory(clientInfo.room)
-      });
+      if (clientInfo.mode === "chat") {
+        sendTo(ws, {
+          type: "history",
+          room: clientInfo.room,
+          messages: getRoomHistory(clientInfo.room)
+        });
 
-      const joinMsg = createSystemMessage(
-        clientInfo.room,
-        `${clientInfo.username} se unió a la sala ${clientInfo.room}.`
-      );
+        const joinMsg = createSystemMessage(
+          clientInfo.room,
+          `${clientInfo.username} se unió a la sala ${clientInfo.room}.`
+        );
 
-      saveMessage(joinMsg);
-      broadcastToRoom(clientInfo.room, joinMsg);
+        saveMessage(joinMsg);
+        broadcastToRoom(clientInfo.room, joinMsg);
+      } else {
+        sendTo(ws, {
+          type: "botPrivate",
+          text: "Modo Bot privado activado. Tus mensajes aquí no se envían a los demás usuarios de la sala."
+        });
+      }
 
       if (oldRoom && oldRoom !== clientInfo.room) {
         broadcastUsers(oldRoom);
@@ -371,7 +374,7 @@ wss.on("connection", (ws) => {
     }
 
     // ==========================
-    // MENSAJE DE CHAT / BOT
+    // MENSAJE
     // ==========================
 
     if (data.type === "message") {
@@ -387,6 +390,40 @@ wss.on("connection", (ws) => {
         return;
       }
 
+      // ==========================
+      // MODO BOT PRIVADO
+      // No se guarda en historial de sala.
+      // No se envía a otros usuarios.
+      // ==========================
+
+      if (clientInfo.mode === "bot") {
+        const privateUserMessage = createUserMessage(
+          clientInfo.room,
+          clientInfo.username,
+          text
+        );
+
+        privateUserMessage.private = true;
+
+        sendTo(ws, privateUserMessage);
+
+        const botText = await getBotResponse(text, {
+          username: clientInfo.username,
+          room: clientInfo.room
+        });
+
+        const botMessage = createBotMessage(clientInfo.room, botText);
+        botMessage.private = true;
+
+        sendTo(ws, botMessage);
+        return;
+      }
+
+      // ==========================
+      // MODO CHAT NORMAL
+      // Se guarda y se envía a la sala.
+      // ==========================
+
       const userMessage = createUserMessage(
         clientInfo.room,
         clientInfo.username,
@@ -395,32 +432,6 @@ wss.on("connection", (ws) => {
 
       saveMessage(userMessage);
       broadcastToRoom(clientInfo.room, userMessage);
-
-      const lowerText = text.toLowerCase();
-
-      const shouldBotReply =
-        clientInfo.mode === "bot" ||
-        lowerText.startsWith("/bot") ||
-        lowerText.includes("@bot");
-
-      if (shouldBotReply) {
-        const cleanQuestion = text
-          .replace(/\/bot/gi, "")
-          .replace(/@bot/gi, "")
-          .trim();
-
-      
-
-        const botText = await getBotResponse(cleanQuestion || text, {
-          username: clientInfo.username,
-          room: clientInfo.room
-        });
-
-        const botMessage = createBotMessage(clientInfo.room, botText);
-
-        saveMessage(botMessage);
-        broadcastToRoom(clientInfo.room, botMessage);
-      }
 
       return;
     }
@@ -435,7 +446,7 @@ wss.on("connection", (ws) => {
 
       if (!newRoom) return;
 
-      if (oldRoom) {
+      if (oldRoom && clientInfo.mode === "chat") {
         const leaveOld = createSystemMessage(
           oldRoom,
           `${clientInfo.username} cambió de sala.`
@@ -455,19 +466,26 @@ wss.on("connection", (ws) => {
         mode: clientInfo.mode
       });
 
-      sendTo(ws, {
-        type: "history",
-        room: newRoom,
-        messages: getRoomHistory(newRoom)
-      });
+      if (clientInfo.mode === "chat") {
+        sendTo(ws, {
+          type: "history",
+          room: newRoom,
+          messages: getRoomHistory(newRoom)
+        });
 
-      const changeMsg = createSystemMessage(
-        newRoom,
-        `${clientInfo.username} entró a la sala ${newRoom}.`
-      );
+        const changeMsg = createSystemMessage(
+          newRoom,
+          `${clientInfo.username} entró a la sala ${newRoom}.`
+        );
 
-      saveMessage(changeMsg);
-      broadcastToRoom(newRoom, changeMsg);
+        saveMessage(changeMsg);
+        broadcastToRoom(newRoom, changeMsg);
+      } else {
+        sendTo(ws, {
+          type: "botPrivate",
+          text: "Modo Bot privado activado en la nueva sala. Tus mensajes no se envían a otros usuarios."
+        });
+      }
 
       if (oldRoom) broadcastUsers(oldRoom);
       broadcastUsers(newRoom);
@@ -479,10 +497,12 @@ wss.on("connection", (ws) => {
     // ==========================
 
     if (data.type === "typing") {
-      broadcastToRoom(clientInfo.room, {
-        type: "typing",
-        user: clientInfo.username
-      });
+      if (clientInfo.mode === "chat") {
+        broadcastToRoom(clientInfo.room, {
+          type: "typing",
+          user: clientInfo.username
+        });
+      }
 
       return;
     }
@@ -491,7 +511,13 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     const clientInfo = clients.get(ws);
 
-    if (clientInfo && clientInfo.room && clientInfo.username && clientInfo.authenticated) {
+    if (
+      clientInfo &&
+      clientInfo.room &&
+      clientInfo.username &&
+      clientInfo.authenticated &&
+      clientInfo.mode === "chat"
+    ) {
       const exitMessage = createSystemMessage(
         clientInfo.room,
         `${clientInfo.username} salió del chat.`

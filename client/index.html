@@ -166,10 +166,6 @@
     cursor: not-allowed;
   }
 
-  .btn-secondary {
-    background: #1a1917;
-  }
-
   .users-section {
     flex: 1;
     overflow: hidden;
@@ -578,10 +574,9 @@
     </div>
 
     <button class="btn-connect" onclick="connect()" id="connectBtn">Conectar</button>
-    <button class="btn-connect btn-secondary" onclick="requestNotifications()" id="notifyBtn">Activar notificaciones</button>
 
     <div class="small-help">
-      El historial se carga automáticamente al entrar a una sala. En modo Bot, el asistente responde tus mensajes.
+      En modo Chat hablas con la sala. En modo Bot la conversación es privada con el asistente.
     </div>
 
     <div class="status-row">
@@ -675,20 +670,12 @@ function playSound() {
   } catch(e) {}
 }
 
-function requestNotifications() {
-  if (!("Notification" in window)) {
-    alert("Este navegador no soporta notificaciones.");
-    return;
-  }
+function requestNotificationsIfNeeded() {
+  if (!("Notification" in window)) return;
 
-  Notification.requestPermission().then((permission) => {
-    if (permission === "granted") {
-      alert("Notificaciones activadas.");
-      document.getElementById("notifyBtn").textContent = "Notificaciones activas";
-    } else {
-      alert("No se activaron las notificaciones.");
-    }
-  });
+  if (Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
 }
 
 function showBrowserNotification(title, body) {
@@ -707,7 +694,7 @@ function setMode(m) {
 
   document.getElementById("chatTab").classList.toggle("active", m === "chat");
   document.getElementById("botTab").classList.toggle("active", m === "bot");
-  document.getElementById("modeBadge").textContent = m === "bot" ? "Bot" : "Chat";
+  document.getElementById("modeBadge").textContent = m === "bot" ? "Bot privado" : "Chat";
 
   document.getElementById("chat").innerHTML = "";
 
@@ -718,6 +705,8 @@ function setMode(m) {
 }
 
 function connect() {
+  requestNotificationsIfNeeded();
+
   const room = document.getElementById("room").value.trim();
   myUsername = document.getElementById("username").value.trim();
 
@@ -735,9 +724,9 @@ function connect() {
 
   document.getElementById("headerTitle").textContent = "Sala · " + room;
   document.getElementById("headerSub").textContent =
-    mode === "bot" ? "Modo asistente IA" : "Chat en grupo";
+    mode === "bot" ? "Conversación privada con el asistente" : "Chat en grupo";
 
-  document.getElementById("modeBadge").textContent = mode === "bot" ? "Bot" : "Chat";
+  document.getElementById("modeBadge").textContent = mode === "bot" ? "Bot privado" : "Chat";
 
   document.getElementById("connectBtn").disabled = true;
   document.getElementById("connectBtn").textContent = "Conectando...";
@@ -766,7 +755,12 @@ function connect() {
     document.getElementById("connectBtn").textContent = "Reconectar";
     document.getElementById("connectBtn").disabled = false;
 
-    log("Conectado a la sala " + room, "system");
+    log(
+      mode === "bot"
+        ? "Conectado al bot privado."
+        : "Conectado a la sala " + room,
+      "system"
+    );
   };
 
   socket.onerror = () => {
@@ -803,6 +797,12 @@ function connect() {
       return;
     }
 
+    if (data.type === "botPrivate") {
+      document.getElementById("chat").innerHTML = "";
+      log(data.text, "system");
+      return;
+    }
+
     if (data.type === "users") {
       connectedUsers = Array.isArray(data.users) ? data.users : [];
       renderUsers();
@@ -811,9 +811,11 @@ function connect() {
 
     if (data.type === "joined") {
       currentRoom = data.room;
+
       document.getElementById("headerTitle").textContent = "Sala · " + data.room;
       document.getElementById("headerSub").textContent =
-        mode === "bot" ? "Modo asistente IA" : "Chat en grupo";
+        data.mode === "bot" ? "Conversación privada con el asistente" : "Chat en grupo";
+
       return;
     }
 
