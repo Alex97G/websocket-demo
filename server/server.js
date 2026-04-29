@@ -409,12 +409,7 @@ wss.on("connection", (ws) => {
           .replace(/@bot/gi, "")
           .trim();
 
-        const thinkingMessage = createBotMessage(
-          clientInfo.room,
-          "Estoy pensando..."
-        );
-
-        broadcastToRoom(clientInfo.room, thinkingMessage);
+      
 
         const botText = await getBotResponse(cleanQuestion || text, {
           username: clientInfo.username,
