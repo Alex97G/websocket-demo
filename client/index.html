@@ -52,7 +52,6 @@
     height: min(92dvh, 700px);
     display: grid;
     grid-template-columns: 230px 1fr;
-    grid-template-rows: 1fr;
     background: var(--surface);
     border-radius: var(--radius);
     border: 1px solid var(--border);
@@ -99,16 +98,10 @@
     font-size: 13.5px;
     color: var(--text);
     outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
   }
 
   .input-clean:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-light);
-  }
-
-  .input-clean::placeholder {
-    color: var(--text-muted);
   }
 
   .mode-tabs {
@@ -130,7 +123,6 @@
     font-weight: 500;
     color: var(--text-muted);
     cursor: pointer;
-    transition: all 0.15s;
   }
 
   .mode-tab.active {
@@ -150,20 +142,37 @@
     font-size: 13.5px;
     font-weight: 500;
     cursor: pointer;
-    transition: opacity 0.15s, transform 0.1s;
-  }
-
-  .btn-connect:hover {
-    opacity: 0.88;
-  }
-
-  .btn-connect:active {
-    transform: scale(0.98);
   }
 
   .btn-connect:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .small-help {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: -8px;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-muted);
+  }
+
+  .status-dot.online {
+    background: #52b788;
   }
 
   .users-section {
@@ -196,28 +205,25 @@
     height: 7px;
     border-radius: 50%;
     background: #52b788;
-    flex-shrink: 0;
   }
 
-  .status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--text-muted);
-    flex-shrink: 0;
-    transition: background 0.3s;
+  .qr-wrap {
+    text-align: center;
+    margin-top: auto;
   }
 
-  .status-dot.online {
-    background: #52b788;
+  .qr-wrap img {
+    width: 86px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: white;
+    padding: 4px;
   }
 
-  .status-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
+  .qr-label {
+    font-size: 10.5px;
     color: var(--text-muted);
+    margin-bottom: 5px;
   }
 
   .main {
@@ -232,7 +238,6 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-shrink: 0;
   }
 
   .chat-header-title {
@@ -244,12 +249,6 @@
     font-size: 12px;
     color: var(--text-muted);
     margin-top: 1px;
-  }
-
-  .header-badges {
-    display: flex;
-    gap: 6px;
-    align-items: center;
   }
 
   .badge {
@@ -268,7 +267,6 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    scroll-behavior: smooth;
   }
 
   .msg-row {
@@ -358,7 +356,6 @@
   .input-area {
     padding: 12px 16px;
     border-top: 1px solid var(--border);
-    flex-shrink: 0;
   }
 
   .emoji-bar {
@@ -375,12 +372,6 @@
     padding: 4px 7px;
     font-size: 15px;
     cursor: pointer;
-    transition: background 0.1s;
-    line-height: 1;
-  }
-
-  .emoji-btn:hover {
-    background: var(--border);
   }
 
   .input-row {
@@ -402,17 +393,7 @@
     resize: none;
     min-height: 42px;
     max-height: 100px;
-    transition: border-color 0.15s, background 0.15s;
     line-height: 1.4;
-  }
-
-  .msg-input:focus {
-    border-color: var(--accent);
-    background: var(--surface);
-  }
-
-  .msg-input::placeholder {
-    color: var(--text-muted);
   }
 
   .btn-send {
@@ -424,45 +405,6 @@
     color: white;
     font-size: 16px;
     cursor: pointer;
-    flex-shrink: 0;
-    transition: opacity 0.15s, transform 0.1s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .btn-send:hover {
-    opacity: 0.85;
-  }
-
-  .btn-send:active {
-    transform: scale(0.96);
-  }
-
-  .qr-wrap {
-    text-align: center;
-    margin-top: auto;
-  }
-
-  .qr-wrap img {
-    width: 86px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: white;
-    padding: 4px;
-  }
-
-  .qr-label {
-    font-size: 10.5px;
-    color: var(--text-muted);
-    margin-bottom: 5px;
-  }
-
-  .small-help {
-    font-size: 10.5px;
-    color: var(--text-muted);
-    line-height: 1.4;
-    margin-top: -8px;
   }
 
   @media (max-width: 600px) {
@@ -499,15 +441,9 @@
       min-width: 120px;
     }
 
-    .sidebar-section label {
-      margin-bottom: 4px;
-    }
-
-    .users-section {
-      display: none;
-    }
-
-    .qr-wrap {
+    .users-section,
+    .qr-wrap,
+    .small-help {
       display: none;
     }
 
@@ -516,34 +452,9 @@
       flex: 1;
     }
 
-    .small-help {
-      display: none;
-    }
-
     .msg-row {
       max-width: 86%;
     }
-
-    .chat-header {
-      padding: 12px 14px;
-    }
-
-    .chat-messages {
-      padding: 14px;
-    }
-  }
-
-  ::-webkit-scrollbar {
-    width: 4px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 4px;
   }
 </style>
 </head>
@@ -604,9 +515,7 @@
         <div class="chat-header-sub" id="headerSub">Conecta para empezar</div>
       </div>
 
-      <div class="header-badges">
-        <span class="badge" id="modeBadge">Chat</span>
-      </div>
+      <span class="badge" id="modeBadge">Chat</span>
     </div>
 
     <div class="chat-messages" id="chat"></div>
@@ -646,6 +555,7 @@ const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") +
 const BASE_URL = window.location.origin + window.location.pathname;
 
 const params = new URLSearchParams(window.location.search);
+
 if (params.get("room")) {
   document.getElementById("room").value = params.get("room");
 }
@@ -670,32 +580,13 @@ function playSound() {
   } catch(e) {}
 }
 
-function requestNotificationsIfNeeded() {
-  if (!("Notification" in window)) return;
-
-  if (Notification.permission === "default") {
-    Notification.requestPermission().catch(() => {});
-  }
-}
-
-function showBrowserNotification(title, body) {
-  if (!("Notification" in window)) return;
-  if (Notification.permission !== "granted") return;
-
-  if (document.hidden) {
-    new Notification("Nuevo mensaje de " + title, {
-      body: body
-    });
-  }
-}
-
 function setMode(m) {
   mode = m;
 
   document.getElementById("chatTab").classList.toggle("active", m === "chat");
   document.getElementById("botTab").classList.toggle("active", m === "bot");
-  document.getElementById("modeBadge").textContent = m === "bot" ? "Bot privado" : "Chat";
 
+  document.getElementById("modeBadge").textContent = m === "bot" ? "Bot privado" : "Chat";
   document.getElementById("chat").innerHTML = "";
 
   if (socket && socket.readyState === WebSocket.OPEN) {
@@ -705,8 +596,6 @@ function setMode(m) {
 }
 
 function connect() {
-  requestNotificationsIfNeeded();
-
   const room = document.getElementById("room").value.trim();
   myUsername = document.getElementById("username").value.trim();
 
@@ -718,6 +607,7 @@ function connect() {
   currentRoom = room;
 
   const shareURL = BASE_URL + "?room=" + encodeURIComponent(room);
+
   document.getElementById("qrImg").src =
     "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" +
     encodeURIComponent(shareURL);
@@ -726,7 +616,8 @@ function connect() {
   document.getElementById("headerSub").textContent =
     mode === "bot" ? "Conversación privada con el asistente" : "Chat en grupo";
 
-  document.getElementById("modeBadge").textContent = mode === "bot" ? "Bot privado" : "Chat";
+  document.getElementById("modeBadge").textContent =
+    mode === "bot" ? "Bot privado" : "Chat";
 
   document.getElementById("connectBtn").disabled = true;
   document.getElementById("connectBtn").textContent = "Conectando...";
@@ -821,12 +712,12 @@ function connect() {
 
     if (data.type === "message") {
       const isMe = data.user === myUsername;
+
       log(data.text, isMe ? "me" : "other", data.user, isMe, data.time);
 
       if (!isMe) {
         playSound();
         trackUser(data.user);
-        showBrowserNotification(data.user, data.text);
       }
 
       return;
@@ -835,7 +726,6 @@ function connect() {
     if (data.type === "bot") {
       log(data.text, "bot", "🤖 Asistente", false, data.time);
       playSound();
-      showBrowserNotification("Asistente", data.text);
       return;
     }
 
@@ -871,10 +761,6 @@ function renderHistory(messages, room) {
       log(msg.text, isMe ? "me" : "other", msg.user, isMe, msg.time);
     }
 
-    if (msg.type === "bot") {
-      log(msg.text, "bot", "🤖 Asistente", false, msg.time);
-    }
-
     if (msg.type === "system") {
       log(msg.text || msg.message, "system", "", false, msg.time);
     }
@@ -903,6 +789,7 @@ function removeUser(name) {
 
 function renderUsers() {
   const list = document.getElementById("usersList");
+
   list.innerHTML = "";
 
   const all = myUsername
@@ -914,10 +801,12 @@ function renderUsers() {
   unique.forEach(u => {
     const div = document.createElement("div");
     div.className = "user-item";
+
     div.innerHTML = `
       <div class="user-dot"></div>
       <span>${escapeHtml(u)}${u === myUsername ? " (tú)" : ""}</span>
     `;
+
     list.appendChild(div);
   });
 }
@@ -943,6 +832,7 @@ function send() {
 
 function addEmoji(e) {
   const input = document.getElementById("message");
+
   input.value += e;
   input.focus();
 }

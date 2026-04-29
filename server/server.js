@@ -47,7 +47,7 @@ let db = loadDatabase();
 // ==========================
 
 app.get("/", (req, res) => {
-  res.send("Servidor WebSocket Demo activo con salas, historial, chatbot Groq privado y notificaciones.");
+  res.send("Servidor WebSocket Demo activo con salas, historial y chatbot Groq privado.");
 });
 
 // ==========================
@@ -200,7 +200,7 @@ async function getGroqResponse(text, context = {}) {
             "Eres un chatbot asistente dentro de un proyecto académico llamado WebSocket Demo. " +
             "Responde siempre en español. Sé claro, amable y útil. " +
             "Puedes responder preguntas generales del usuario, no solo del proyecto. " +
-            "Si preguntan sobre el proyecto, explica WebSocket, salas, historial, base de datos, notificaciones, Node.js, OpenShift y chatbot. " +
+            "Si preguntan sobre el proyecto, explica WebSocket, salas, historial, base de datos, Node.js, OpenShift y chatbot. " +
             "No inventes datos privados. Si no sabes algo, dilo de manera natural."
         },
         {
@@ -327,7 +327,7 @@ wss.on("connection", (ws) => {
     if (data.type === "join") {
       const oldRoom = clientInfo.room;
 
-      const username = cleanText(data.username || data.name || "Invitado", 24);
+      const username = cleanText(data.username || "Invitado", 24);
       const room = cleanText(data.room || "general", 30);
       const mode = data.mode === "bot" ? "bot" : "chat";
 
@@ -361,7 +361,7 @@ wss.on("connection", (ws) => {
       } else {
         sendTo(ws, {
           type: "botPrivate",
-          text: "Modo Bot privado activado. Tus mensajes aquí no se envían a los demás usuarios de la sala."
+          text: "Modo Bot privado activado. Esta conversación no se envía a la sala."
         });
       }
 
@@ -374,11 +374,11 @@ wss.on("connection", (ws) => {
     }
 
     // ==========================
-    // MENSAJE
+    // MENSAJES
     // ==========================
 
     if (data.type === "message") {
-      const text = cleanText(data.text || data.message, 500);
+      const text = cleanText(data.text, 500);
 
       if (text === "") return;
 
@@ -390,12 +390,7 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // ==========================
       // MODO BOT PRIVADO
-      // No se guarda en historial de sala.
-      // No se envía a otros usuarios.
-      // ==========================
-
       if (clientInfo.mode === "bot") {
         const privateUserMessage = createUserMessage(
           clientInfo.room,
@@ -419,11 +414,7 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // ==========================
       // MODO CHAT NORMAL
-      // Se guarda y se envía a la sala.
-      // ==========================
-
       const userMessage = createUserMessage(
         clientInfo.room,
         clientInfo.username,
@@ -483,27 +474,12 @@ wss.on("connection", (ws) => {
       } else {
         sendTo(ws, {
           type: "botPrivate",
-          text: "Modo Bot privado activado en la nueva sala. Tus mensajes no se envían a otros usuarios."
+          text: "Modo Bot privado activado en la nueva sala."
         });
       }
 
       if (oldRoom) broadcastUsers(oldRoom);
       broadcastUsers(newRoom);
-      return;
-    }
-
-    // ==========================
-    // ESCRIBIENDO
-    // ==========================
-
-    if (data.type === "typing") {
-      if (clientInfo.mode === "chat") {
-        broadcastToRoom(clientInfo.room, {
-          type: "typing",
-          user: clientInfo.username
-        });
-      }
-
       return;
     }
   });
