@@ -746,6 +746,7 @@ function handleSocketMessage(e) {
   }
 
   if (data.type === "history") {
+    if (!currentRoom && data.room) currentRoom = data.room;
     renderHistory(data.messages || [], data.room);
     return;
   }
