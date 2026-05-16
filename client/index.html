@@ -829,7 +829,7 @@ function renderHistory(messages, room) {
   }
 
   messages.forEach((msg) => {
-    if (msg.room && msg.room !== currentRoom) return;
+    if (msg.room && msg.room !== (room || currentRoom)) return;
 
     if (msg.type === "message") {
       const isMe = msg.user === myUsername;
