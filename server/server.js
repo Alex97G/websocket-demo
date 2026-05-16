@@ -6,53 +6,87 @@ const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const VERSION = "SALAS_PERSISTENTES_CAMBIO_SALA_2026_05_16";
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const DB_FILE = path.join(__dirname, "messages-db.json");
+const clients = new Map();
 
-let clients = new Map();
+function defaultDatabase() {
+  return {
+    version: VERSION,
+    rooms: {},
+    messages: []
+  };
+}
 
-// ==========================
-// BASE DE DATOS SIMPLE JSON
-// ==========================
+function normalizeDatabase(value) {
+  const db = value && typeof value === "object" ? value : {};
+
+  if (!Array.isArray(db.messages)) db.messages = [];
+  if (!db.rooms || typeof db.rooms !== "object" || Array.isArray(db.rooms)) {
+    db.rooms = {};
+  }
+
+  db.version = VERSION;
+  return db;
+}
 
 function loadDatabase() {
   try {
     if (!fs.existsSync(DB_FILE)) {
-      fs.writeFileSync(DB_FILE, JSON.stringify({ messages: [] }, null, 2));
+      fs.writeFileSync(DB_FILE, JSON.stringify(defaultDatabase(), null, 2));
     }
 
     const content = fs.readFileSync(DB_FILE, "utf8");
-    return JSON.parse(content);
+    const parsed = JSON.parse(content || "{}");
+
+    return normalizeDatabase(parsed);
   } catch (error) {
     console.log("Error cargando base de datos:", error.message);
-    return { messages: [] };
+    return defaultDatabase();
   }
 }
 
-function saveDatabase(db) {
+let db = loadDatabase();
+
+function saveDatabase() {
   try {
+    db = normalizeDatabase(db);
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   } catch (error) {
     console.log("Error guardando base de datos:", error.message);
   }
 }
 
-let db = loadDatabase();
-
-// ==========================
-// RUTA HTTP DE PRUEBA
-// ==========================
-
 app.get("/", (req, res) => {
-  res.send("Servidor WebSocket Demo activo con salas, historial y chatbot Groq privado.");
+  res.send(
+    "Servidor WebSocket Demo activo con salas persistentes, historial, cambio de sala y chatbot Groq privado. Versión: " +
+      VERSION
+  );
 });
 
-// ==========================
-// UTILIDADES
-// ==========================
+app.get("/health", (req, res) => {
+  res.json({
+    ok: true,
+    sistema: "Servidor WebSocket Demo",
+    version: VERSION,
+    puerto: PORT,
+    salas_guardadas: Object.keys(db.rooms || {}).length,
+    mensajes_guardados: Array.isArray(db.messages) ? db.messages.length : 0
+  });
+});
+
+app.get("/rooms", (req, res) => {
+  res.json({
+    ok: true,
+    rooms: Object.values(db.rooms || {}).sort((a, b) =>
+      String(b.lastActivity || "").localeCompare(String(a.lastActivity || ""))
+    )
+  });
+});
 
 function now() {
   return new Date().toISOString();
@@ -66,64 +100,99 @@ function cleanText(value, max = 300) {
 }
 
 function sendTo(ws, data) {
-  if (ws.readyState === WebSocket.OPEN) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(data));
   }
 }
 
+function isChatClient(clientInfo) {
+  return clientInfo && clientInfo.authenticated && clientInfo.mode === "chat";
+}
+
 function broadcastToRoom(room, data) {
-  const message = JSON.stringify(data);
+  const safeRoom = cleanText(room, 30);
+  if (!safeRoom) return;
+
+  const payload = JSON.stringify({ ...data, room: safeRoom });
 
   clients.forEach((clientInfo, client) => {
     if (
       client.readyState === WebSocket.OPEN &&
-      clientInfo.room === room &&
-      clientInfo.authenticated &&
-      clientInfo.mode === "chat"
+      clientInfo.room === safeRoom &&
+      isChatClient(clientInfo)
     ) {
-      client.send(message);
+      client.send(payload);
     }
   });
 }
 
 function getUsersInRoom(room) {
+  const safeRoom = cleanText(room, 30);
   const users = [];
 
   clients.forEach((clientInfo, client) => {
     if (
       client.readyState === WebSocket.OPEN &&
-      clientInfo.room === room &&
+      clientInfo.room === safeRoom &&
       clientInfo.username &&
-      clientInfo.authenticated
+      isChatClient(clientInfo)
     ) {
-      if (!users.includes(clientInfo.username)) {
-        users.push(clientInfo.username);
-      }
+      users.push(clientInfo.username);
     }
   });
 
-  return users;
+  return [...new Set(users)];
 }
 
 function broadcastUsers(room) {
-  if (!room) return;
+  const safeRoom = cleanText(room, 30);
+  if (!safeRoom) return;
 
-  const payload = {
+  const payload = JSON.stringify({
     type: "users",
-    users: getUsersInRoom(room)
-  };
-
-  const message = JSON.stringify(payload);
+    room: safeRoom,
+    users: getUsersInRoom(safeRoom)
+  });
 
   clients.forEach((clientInfo, client) => {
     if (
       client.readyState === WebSocket.OPEN &&
-      clientInfo.room === room &&
-      clientInfo.authenticated
+      clientInfo.room === safeRoom &&
+      isChatClient(clientInfo)
     ) {
-      client.send(message);
+      client.send(payload);
     }
   });
+}
+
+function touchRoom(room, username = "") {
+  const safeRoom = cleanText(room, 30) || "general";
+  const safeUser = cleanText(username, 24);
+
+  const current = db.rooms[safeRoom] || {
+    room: safeRoom,
+    createdAt: now(),
+    lastActivity: now(),
+    usersSeen: []
+  };
+
+  current.lastActivity = now();
+
+  if (safeUser && !current.usersSeen.includes(safeUser)) {
+    current.usersSeen.push(safeUser);
+  }
+
+  current.onlineUsers = getUsersInRoom(safeRoom);
+  current.messageCount = db.messages.filter(
+    (msg) => msg.room === safeRoom && msg.type === "message"
+  ).length;
+
+  if (current.usersSeen.length > 100) {
+    current.usersSeen = current.usersSeen.slice(-100);
+  }
+
+  db.rooms[safeRoom] = current;
+  saveDatabase();
 }
 
 function saveMessage(messageData) {
@@ -133,13 +202,13 @@ function saveMessage(messageData) {
     db.messages = db.messages.slice(db.messages.length - 1500);
   }
 
-  saveDatabase(db);
+  touchRoom(messageData.room, messageData.user || "");
 }
 
 function getRoomHistory(room) {
-  return db.messages
-    .filter((msg) => msg.room === room)
-    .slice(-60);
+  const safeRoom = cleanText(room, 30) || "general";
+
+  return db.messages.filter((msg) => msg.room === safeRoom).slice(-60);
 }
 
 function createSystemMessage(room, text) {
@@ -171,9 +240,13 @@ function createBotMessage(room, text) {
   };
 }
 
-// ==========================
-// CHATBOT CON GROQ
-// ==========================
+function sendHistory(ws, room) {
+  sendTo(ws, {
+    type: "history",
+    room,
+    messages: getRoomHistory(room)
+  });
+}
 
 async function getGroqResponse(text, context = {}) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -188,7 +261,7 @@ async function getGroqResponse(text, context = {}) {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": "Bearer " + apiKey,
+      Authorization: "Bearer " + apiKey,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
@@ -206,8 +279,12 @@ async function getGroqResponse(text, context = {}) {
         {
           role: "user",
           content:
-            "Usuario actual: " + username + "\n" +
-            "Sala actual: " + room + "\n\n" +
+            "Usuario actual: " +
+            username +
+            "\n" +
+            "Sala actual: " +
+            room +
+            "\n\n" +
             "Mensaje del usuario:\n" +
             text
         }
@@ -251,9 +328,74 @@ async function getBotResponse(text, context = {}) {
   }
 }
 
-// ==========================
-// WEBSOCKET
-// ==========================
+function joinOrChangeRoom(ws, data, isChange = false) {
+  const clientInfo = clients.get(ws);
+  if (!clientInfo) return;
+
+  const oldRoom = clientInfo.room;
+  const oldMode = clientInfo.mode;
+
+  const username =
+    cleanText(data.username || clientInfo.username || "Invitado", 24) ||
+    "Invitado";
+  const room =
+    cleanText(data.room || clientInfo.room || "general", 30) || "general";
+  const mode = data.mode === "bot" ? "bot" : "chat";
+
+  const movingRoom = oldRoom && oldRoom !== room;
+  const changingMode = oldMode && oldMode !== mode;
+
+  if ((movingRoom || changingMode) && oldRoom && oldMode === "chat") {
+    const leaveMsg = createSystemMessage(
+      oldRoom,
+      `${clientInfo.username || username} salió de la sala ${oldRoom}.`
+    );
+    saveMessage(leaveMsg);
+    broadcastToRoom(oldRoom, leaveMsg);
+  }
+
+  clientInfo.username = username;
+  clientInfo.room = room;
+  clientInfo.mode = mode;
+  clientInfo.authenticated = true;
+  clients.set(ws, clientInfo);
+
+  touchRoom(room, username);
+
+  sendTo(ws, {
+    type: "joined",
+    username,
+    room,
+    mode,
+    version: VERSION,
+    changed: Boolean(isChange)
+  });
+
+  if (mode === "chat") {
+    sendHistory(ws, room);
+
+    const joinText =
+      isChange || movingRoom || changingMode
+        ? `${username} entró a la sala ${room}.`
+        : `${username} se unió a la sala ${room}.`;
+
+    const joinMsg = createSystemMessage(room, joinText);
+    saveMessage(joinMsg);
+    broadcastToRoom(room, joinMsg);
+  } else {
+    sendTo(ws, {
+      type: "botPrivate",
+      text: "Modo Bot privado activado. Esta conversación no se envía a la sala."
+    });
+  }
+
+  if (oldRoom && oldRoom !== room) {
+    broadcastUsers(oldRoom);
+    touchRoom(oldRoom);
+  }
+
+  broadcastUsers(room);
+}
 
 wss.on("connection", (ws) => {
   console.log("Cliente conectado");
@@ -267,7 +409,8 @@ wss.on("connection", (ws) => {
 
   sendTo(ws, {
     type: "system",
-    text: "Conectado al servidor WebSocket."
+    text: "Conectado al servidor WebSocket.",
+    version: VERSION
   });
 
   ws.on("message", async (message) => {
@@ -284,12 +427,7 @@ wss.on("connection", (ws) => {
     }
 
     const clientInfo = clients.get(ws);
-
     if (!clientInfo) return;
-
-    // ==========================
-    // AUTENTICACIÓN BÁSICA
-    // ==========================
 
     if (data.type === "auth") {
       const password = String(data.password || "");
@@ -299,8 +437,9 @@ wss.on("connection", (ws) => {
         clients.set(ws, clientInfo);
 
         sendTo(ws, {
-          type: "system",
-          text: "Autenticación correcta."
+          type: "authOk",
+          text: "Autenticación correcta.",
+          version: VERSION
         });
       } else {
         sendTo(ws, {
@@ -320,66 +459,18 @@ wss.on("connection", (ws) => {
       return;
     }
 
-    // ==========================
-    // ENTRAR A SALA / MODO
-    // ==========================
-
     if (data.type === "join") {
-      const oldRoom = clientInfo.room;
-
-      const username = cleanText(data.username || "Invitado", 24);
-      const room = cleanText(data.room || "general", 30);
-      const mode = data.mode === "bot" ? "bot" : "chat";
-
-      clientInfo.username = username || "Invitado";
-      clientInfo.room = room || "general";
-      clientInfo.mode = mode;
-
-      clients.set(ws, clientInfo);
-
-      sendTo(ws, {
-        type: "joined",
-        username: clientInfo.username,
-        room: clientInfo.room,
-        mode: clientInfo.mode
-      });
-
-      if (clientInfo.mode === "chat") {
-        sendTo(ws, {
-          type: "history",
-          room: clientInfo.room,
-          messages: getRoomHistory(clientInfo.room)
-        });
-
-        const joinMsg = createSystemMessage(
-          clientInfo.room,
-          `${clientInfo.username} se unió a la sala ${clientInfo.room}.`
-        );
-
-        saveMessage(joinMsg);
-        broadcastToRoom(clientInfo.room, joinMsg);
-      } else {
-        sendTo(ws, {
-          type: "botPrivate",
-          text: "Modo Bot privado activado. Esta conversación no se envía a la sala."
-        });
-      }
-
-      if (oldRoom && oldRoom !== clientInfo.room) {
-        broadcastUsers(oldRoom);
-      }
-
-      broadcastUsers(clientInfo.room);
+      joinOrChangeRoom(ws, data, false);
       return;
     }
 
-    // ==========================
-    // MENSAJES
-    // ==========================
+    if (data.type === "changeRoom") {
+      joinOrChangeRoom(ws, data, true);
+      return;
+    }
 
     if (data.type === "message") {
       const text = cleanText(data.text, 500);
-
       if (text === "") return;
 
       if (!clientInfo.room || !clientInfo.username) {
@@ -390,14 +481,12 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // MODO BOT PRIVADO
       if (clientInfo.mode === "bot") {
         const privateUserMessage = createUserMessage(
           clientInfo.room,
           clientInfo.username,
           text
         );
-
         privateUserMessage.private = true;
 
         sendTo(ws, privateUserMessage);
@@ -414,72 +503,19 @@ wss.on("connection", (ws) => {
         return;
       }
 
-      // MODO CHAT NORMAL
       const userMessage = createUserMessage(
         clientInfo.room,
         clientInfo.username,
         text
       );
-
       saveMessage(userMessage);
       broadcastToRoom(clientInfo.room, userMessage);
-
+      broadcastUsers(clientInfo.room);
       return;
     }
 
-    // ==========================
-    // CAMBIAR DE SALA
-    // ==========================
-
-    if (data.type === "changeRoom") {
-      const oldRoom = clientInfo.room;
-      const newRoom = cleanText(data.room || "general", 30);
-
-      if (!newRoom) return;
-
-      if (oldRoom && clientInfo.mode === "chat") {
-        const leaveOld = createSystemMessage(
-          oldRoom,
-          `${clientInfo.username} cambió de sala.`
-        );
-
-        saveMessage(leaveOld);
-        broadcastToRoom(oldRoom, leaveOld);
-      }
-
-      clientInfo.room = newRoom;
-      clients.set(ws, clientInfo);
-
-      sendTo(ws, {
-        type: "joined",
-        username: clientInfo.username,
-        room: newRoom,
-        mode: clientInfo.mode
-      });
-
-      if (clientInfo.mode === "chat") {
-        sendTo(ws, {
-          type: "history",
-          room: newRoom,
-          messages: getRoomHistory(newRoom)
-        });
-
-        const changeMsg = createSystemMessage(
-          newRoom,
-          `${clientInfo.username} entró a la sala ${newRoom}.`
-        );
-
-        saveMessage(changeMsg);
-        broadcastToRoom(newRoom, changeMsg);
-      } else {
-        sendTo(ws, {
-          type: "botPrivate",
-          text: "Modo Bot privado activado en la nueva sala."
-        });
-      }
-
-      if (oldRoom) broadcastUsers(oldRoom);
-      broadcastUsers(newRoom);
+    if (data.type === "ping") {
+      sendTo(ws, { type: "pong", time: now(), version: VERSION });
       return;
     }
   });
@@ -507,6 +543,7 @@ wss.on("connection", (ws) => {
 
     if (clientInfo && clientInfo.room) {
       broadcastUsers(clientInfo.room);
+      touchRoom(clientInfo.room);
     }
 
     console.log("Cliente desconectado");
@@ -517,10 +554,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-// ==========================
-// INICIAR SERVIDOR
-// ==========================
-
 server.listen(PORT, "0.0.0.0", () => {
   console.log("Servidor WebSocket Demo escuchando en puerto " + PORT);
+  console.log("Versión:", VERSION);
 });

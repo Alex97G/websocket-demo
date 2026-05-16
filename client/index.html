@@ -543,18 +543,25 @@
 </div>
 
 <script>
-let socket;
+let socket = null;
 let mode = "chat";
 let myUsername = "";
 let connectedUsers = [];
 let currentRoom = "";
+let isAuthenticated = false;
+let pendingJoin = null;
+let manualClose = false;
 
-const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") +
-  "websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com/";
-
-const BASE_URL = window.location.origin + window.location.pathname;
+const CLIENT_VERSION = "SALAS_PERSISTENTES_CAMBIO_SALA_2026_05_16";
 
 const params = new URLSearchParams(window.location.search);
+
+const DEFAULT_WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") +
+  "websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com/";
+
+const WS_URL = params.get("ws") || localStorage.getItem("ws_url") || DEFAULT_WS_URL;
+
+const BASE_URL = window.location.origin + window.location.pathname;
 
 if (params.get("room")) {
   document.getElementById("room").value = params.get("room");
@@ -589,40 +596,73 @@ function setMode(m) {
   document.getElementById("modeBadge").textContent = m === "bot" ? "Bot privado" : "Chat";
   document.getElementById("chat").innerHTML = "";
 
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.close();
-    setTimeout(connect, 300);
+  if (socket && socket.readyState === WebSocket.OPEN && isAuthenticated) {
+    sendJoinOrChange(true);
   }
 }
 
-function connect() {
+function getFormData() {
   const room = document.getElementById("room").value.trim();
-  myUsername = document.getElementById("username").value.trim();
+  const username = document.getElementById("username").value.trim();
 
-  if (!room || !myUsername) {
-    alert("Completa usuario y sala");
-    return;
-  }
+  return { room, username };
+}
 
-  currentRoom = room;
-
+function updateShareQr(room) {
   const shareURL = BASE_URL + "?room=" + encodeURIComponent(room);
 
   document.getElementById("qrImg").src =
     "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" +
     encodeURIComponent(shareURL);
+}
 
+function updateHeader(room) {
   document.getElementById("headerTitle").textContent = "Sala · " + room;
   document.getElementById("headerSub").textContent =
     mode === "bot" ? "Conversación privada con el asistente" : "Chat en grupo";
 
   document.getElementById("modeBadge").textContent =
     mode === "bot" ? "Bot privado" : "Chat";
+}
 
+function connect() {
+  const { room, username } = getFormData();
+
+  if (!room || !username) {
+    alert("Completa usuario y sala");
+    return;
+  }
+
+  myUsername = username;
+  currentRoom = room;
+  connectedUsers = [];
+
+  updateShareQr(room);
+  updateHeader(room);
+  renderUsers();
+
+  document.getElementById("chat").innerHTML = "";
   document.getElementById("connectBtn").disabled = true;
   document.getElementById("connectBtn").textContent = "Conectando...";
 
+  pendingJoin = { username, room, mode };
+
+  if (socket && socket.readyState === WebSocket.OPEN && isAuthenticated) {
+    sendJoinOrChange(true);
+    document.getElementById("connectBtn").disabled = false;
+    document.getElementById("connectBtn").textContent = "Cambiar sala";
+    return;
+  }
+
+  openSocket();
+}
+
+function openSocket() {
+  manualClose = false;
+  isAuthenticated = false;
+
   if (socket && socket.readyState === WebSocket.OPEN) {
+    manualClose = true;
     socket.close();
   }
 
@@ -634,28 +674,11 @@ function connect() {
       password: "1234"
     }));
 
-    socket.send(JSON.stringify({
-      type: "join",
-      username: myUsername,
-      room,
-      mode
-    }));
-
     setStatus(true);
-
-    document.getElementById("connectBtn").textContent = "Reconectar";
-    document.getElementById("connectBtn").disabled = false;
-
-    log(
-      mode === "bot"
-        ? "Conectado al bot privado."
-        : "Conectado a la sala " + room,
-      "system"
-    );
   };
 
   socket.onerror = () => {
-    log("Error de conexión ❌", "system");
+    log("Error de conexión ❌. Revisa la ruta del WebSocket: " + WS_URL, "system");
     setStatus(false);
 
     document.getElementById("connectBtn").disabled = false;
@@ -663,7 +686,6 @@ function connect() {
   };
 
   socket.onclose = () => {
-    log("Desconectado ⚠️", "system");
     setStatus(false);
 
     document.getElementById("connectBtn").disabled = false;
@@ -671,77 +693,128 @@ function connect() {
 
     connectedUsers = [];
     renderUsers();
+
+    if (!manualClose) {
+      log("Desconectado ⚠️", "system");
+    }
   };
 
-  socket.onmessage = (e) => {
-    let data;
+  socket.onmessage = handleSocketMessage;
+}
 
-    try {
-      data = JSON.parse(e.data);
-    } catch (error) {
-      log(e.data, "system");
-      return;
-    }
+function sendJoinOrChange(isChange) {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
-    if (data.type === "history") {
-      renderHistory(data.messages || [], data.room);
-      return;
-    }
+  const { room, username } = getFormData();
 
-    if (data.type === "botPrivate") {
-      document.getElementById("chat").innerHTML = "";
-      log(data.text, "system");
-      return;
-    }
+  pendingJoin = {
+    username: username || myUsername || "Invitado",
+    room: room || currentRoom || "general",
+    mode
+  };
 
-    if (data.type === "users") {
+  currentRoom = pendingJoin.room;
+  myUsername = pendingJoin.username;
+  connectedUsers = [];
+  renderUsers();
+  updateShareQr(currentRoom);
+  updateHeader(currentRoom);
+
+  socket.send(JSON.stringify({
+    type: isChange ? "changeRoom" : "join",
+    username: pendingJoin.username,
+    room: pendingJoin.room,
+    mode: pendingJoin.mode,
+    clientVersion: CLIENT_VERSION
+  }));
+}
+
+function handleSocketMessage(e) {
+  let data;
+
+  try {
+    data = JSON.parse(e.data);
+  } catch (error) {
+    log(e.data, "system");
+    return;
+  }
+
+  if (data.type === "authOk") {
+    isAuthenticated = true;
+    sendJoinOrChange(false);
+    return;
+  }
+
+  if (data.type === "history") {
+    renderHistory(data.messages || [], data.room);
+    return;
+  }
+
+  if (data.type === "botPrivate") {
+    document.getElementById("chat").innerHTML = "";
+    log(data.text, "system");
+    return;
+  }
+
+  if (data.type === "users") {
+    if (!data.room || data.room === currentRoom) {
       connectedUsers = Array.isArray(data.users) ? data.users : [];
       renderUsers();
-      return;
     }
+    return;
+  }
 
-    if (data.type === "joined") {
-      currentRoom = data.room;
+  if (data.type === "joined") {
+    currentRoom = data.room;
+    document.getElementById("room").value = data.room;
+    updateHeader(data.room);
+    updateShareQr(data.room);
 
-      document.getElementById("headerTitle").textContent = "Sala · " + data.room;
-      document.getElementById("headerSub").textContent =
-        data.mode === "bot" ? "Conversación privada con el asistente" : "Chat en grupo";
+    document.getElementById("connectBtn").disabled = false;
+    document.getElementById("connectBtn").textContent = "Cambiar sala";
 
-      return;
-    }
+    log(
+      data.mode === "bot"
+        ? "Conectado al bot privado."
+        : "Entraste a la sala " + data.room,
+      "system"
+    );
+    return;
+  }
 
-    if (data.type === "message") {
-      const isMe = data.user === myUsername;
+  if (data.type === "message") {
+    if (data.room && data.room !== currentRoom) return;
 
-      log(data.text, isMe ? "me" : "other", data.user, isMe, data.time);
+    const isMe = data.user === myUsername;
+    log(data.text, isMe ? "me" : "other", data.user, isMe, data.time);
 
-      if (!isMe) {
-        playSound();
-        trackUser(data.user);
-      }
-
-      return;
-    }
-
-    if (data.type === "bot") {
-      log(data.text, "bot", "🤖 Asistente", false, data.time);
+    if (!isMe) {
       playSound();
-      return;
+      trackUser(data.user);
     }
 
-    if (data.type === "system") {
-      const text = data.text || data.message || "";
+    return;
+  }
 
-      const joinMatch = text.match(/^(.+) se unió/);
-      const leaveMatch = text.match(/^(.+) salió/);
+  if (data.type === "bot") {
+    log(data.text, "bot", "🤖 Asistente", false, data.time);
+    playSound();
+    return;
+  }
 
-      if (joinMatch) trackUser(joinMatch[1]);
-      if (leaveMatch) removeUser(leaveMatch[1]);
+  if (data.type === "system") {
+    if (data.room && data.room !== currentRoom) return;
 
-      log(text, "system", "", false, data.time);
-      return;
-    }
-  };
+    const text = data.text || data.message || "";
+    const joinMatch = text.match(/^(.+) se unió|^(.+) entró/);
+    const leaveMatch = text.match(/^(.+) salió/);
+
+    if (joinMatch) trackUser(joinMatch[1] || joinMatch[2]);
+    if (leaveMatch) removeUser(leaveMatch[1]);
+
+    log(text, "system", "", false, data.time);
+    return;
+  }
 }
 
 function renderHistory(messages, room) {
@@ -756,6 +829,8 @@ function renderHistory(messages, room) {
   }
 
   messages.forEach((msg) => {
+    if (msg.room && msg.room !== currentRoom) return;
+
     if (msg.type === "message") {
       const isMe = msg.user === myUsername;
       log(msg.text, isMe ? "me" : "other", msg.user, isMe, msg.time);
@@ -812,7 +887,7 @@ function renderUsers() {
 }
 
 function send() {
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
+  if (!socket || socket.readyState !== WebSocket.OPEN || !isAuthenticated) {
     alert("No estás conectado");
     return;
   }
@@ -823,7 +898,8 @@ function send() {
 
   socket.send(JSON.stringify({
     type: "message",
-    text: msg
+    text: msg,
+    room: currentRoom
   }));
 
   document.getElementById("message").value = "";
