@@ -1,3 +1,4 @@
+@'
 const http = require("http");
 const WebSocket = require("ws");
 
@@ -10,7 +11,7 @@ const server = http.createServer((req, res) => {
       ok: true,
       sistema: "DOOM WebSocket Multiplayer Arena",
       modo: "multijugador-tiempo-real",
-      version: "2.0-mapas-salas-aim",
+      version: "2.1-ranking-sonidos-linea-vision",
       puerto: PORT
     }));
     return;
@@ -306,3 +307,4 @@ wss.on("connection", (ws) => {
 server.listen(PORT, () => {
   console.log(`DOOM WebSocket Multiplayer Arena running on port ${PORT}`);
 });
+'@ | Set-Content -Path "C:\proyectos\websocket-doom-arena\server\server.js" -Encoding UTF8
