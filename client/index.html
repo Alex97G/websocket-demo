@@ -282,6 +282,44 @@
       height: 2px;
     }
 
+
+    .hit-marker {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 54px;
+      height: 54px;
+      transform: translate(-50%, -50%) scale(0.7);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s ease, transform 0.08s ease;
+    }
+
+    .hit-marker.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .hit-marker::before,
+    .hit-marker::after {
+      content: "";
+      position: absolute;
+      left: 25px;
+      top: 4px;
+      width: 4px;
+      height: 46px;
+      background: rgba(255, 240, 150, 0.95);
+      box-shadow: 0 0 12px #ff4a1e;
+    }
+
+    .hit-marker::before {
+      transform: rotate(45deg);
+    }
+
+    .hit-marker::after {
+      transform: rotate(-45deg);
+    }
+
     .center-announcement {
       position: absolute;
       left: 50%;
@@ -393,6 +431,18 @@
       padding: 8px;
       font-size: 12px;
       color: #ccc;
+      opacity: 0.78;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .controls-help.compact {
+      opacity: 0.18;
+      transform: translateY(28px);
+    }
+
+    .controls-help.compact:hover {
+      opacity: 0.95;
+      transform: translateY(0);
     }
 
     .mobile-controls {
@@ -474,7 +524,45 @@
         font-size: 15px;
       }
 
-      .center-announcement {
+  
+    .hit-marker {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 54px;
+      height: 54px;
+      transform: translate(-50%, -50%) scale(0.7);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s ease, transform 0.08s ease;
+    }
+
+    .hit-marker.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .hit-marker::before,
+    .hit-marker::after {
+      content: "";
+      position: absolute;
+      left: 25px;
+      top: 4px;
+      width: 4px;
+      height: 46px;
+      background: rgba(255, 240, 150, 0.95);
+      box-shadow: 0 0 12px #ff4a1e;
+    }
+
+    .hit-marker::before {
+      transform: rotate(45deg);
+    }
+
+    .hit-marker::after {
+      transform: rotate(-45deg);
+    }
+
+    .center-announcement {
         top: 16%;
         min-width: 260px;
         font-size: 15px;
@@ -565,7 +653,7 @@
       </div>
     </div>
 
-    <div class="controls-help">
+    <div id="controlsHelp" class="controls-help">
       <b>CONTROLES</b><br>
       W/S: avanzar/retroceder<br>
       A/D: girar suave<br>
@@ -584,6 +672,7 @@
     </div>
 
     <div class="center-crosshair"></div>
+    <div id="hitMarker" class="hit-marker"></div>
     <div id="centerAnnouncement" class="center-announcement"></div>
 
     <div class="mobile-controls">
@@ -668,6 +757,8 @@
     const roomValue = document.getElementById("roomValue");
     const onlineValue = document.getElementById("onlineValue");
     const centerAnnouncement = document.getElementById("centerAnnouncement");
+    const hitMarker = document.getElementById("hitMarker");
+    const controlsHelp = document.getElementById("controlsHelp");
 
     let W = window.innerWidth;
     let H = window.innerHeight;
@@ -686,6 +777,10 @@
       E1M1: {
         name: "E1M1 - Hangar",
         wall: "#8b2b18",
+        accent: "#ff4a1e",
+        texture: "metal",
+        skyTexture: "smoke",
+        floorTexture: "grate",
         floor1: "#181818",
         floor2: "#050505",
         sky1: "#240000",
@@ -721,6 +816,10 @@
       E1M2: {
         name: "E1M2 - Nuclear Plant",
         wall: "#326b3d",
+        accent: "#73ff7a",
+        texture: "toxic",
+        skyTexture: "mist",
+        floorTexture: "toxic",
         floor1: "#142018",
         floor2: "#050805",
         sky1: "#002414",
@@ -759,6 +858,10 @@
       ARENA: {
         name: "ARENA FINAL",
         wall: "#7b1d5b",
+        accent: "#ff5bd5",
+        texture: "arena",
+        skyTexture: "stars",
+        floorTexture: "stone",
         floor1: "#1e1220",
         floor2: "#070507",
         sky1: "#27001f",
@@ -798,6 +901,10 @@
       EXPO: {
         name: "SALA DE EXPOSICIÓN",
         wall: "#1f5f8b",
+        accent: "#62e6ff",
+        texture: "tech",
+        skyTexture: "grid",
+        floorTexture: "grid",
         floor1: "#111b24",
         floor2: "#05080b",
         sky1: "#001827",
@@ -853,6 +960,7 @@
 
     let muzzleFlash = 0;
     let damageFlash = 0;
+    let hitMarkerFlash = 0;
     let lastShotAt = 0;
     let audioCtx = null;
     let announcementTimer = null;
@@ -999,8 +1107,13 @@
           }
 
           if (data.targetId === myId) {
-            damageFlash = 12;
+            damageFlash = 10;
             playSound("damage");
+          }
+
+          if (data.shooterId === myId) {
+            showHitMarker();
+            playSound("hit");
           }
 
           if (me.hp <= 0) {
@@ -1075,6 +1188,16 @@
       }, 2200);
     }
 
+    function showHitMarker() {
+      hitMarkerFlash = 8;
+      if (!hitMarker) return;
+
+      hitMarker.classList.add("show");
+      setTimeout(() => {
+        hitMarker.classList.remove("show");
+      }, 120);
+    }
+
     function getAudioCtx() {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1125,8 +1248,12 @@
       }
 
       if (type === "join") {
-        beep(520, 0.06, "triangle", 0.04);
-        setTimeout(() => beep(780, 0.07, "triangle", 0.04), 70);
+        beep(520, 0.06, "triangle", 0.035);
+        setTimeout(() => beep(780, 0.07, "triangle", 0.035), 70);
+      }
+
+      if (type === "hit") {
+        beep(820, 0.045, "square", 0.035);
       }
     }
 
@@ -1288,18 +1415,127 @@
       return `rgb(${Math.floor(r * factor)}, ${Math.floor(g * factor)}, ${Math.floor(b * factor)})`;
     }
 
+    function renderSkyTexture() {
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.strokeStyle = activeArena.accent || "#ff4a1e";
+      ctx.lineWidth = 1;
+
+      if (activeArena.skyTexture === "grid") {
+        for (let x = -80; x < W + 80; x += 80) {
+          ctx.beginPath();
+          ctx.moveTo(x + ((me.angle * 120) % 80), 0);
+          ctx.lineTo(x + 40 + ((me.angle * 120) % 80), H / 2);
+          ctx.stroke();
+        }
+      } else if (activeArena.skyTexture === "stars") {
+        ctx.fillStyle = activeArena.accent;
+        for (let i = 0; i < 60; i++) {
+          const x = (i * 97 + Math.floor(me.angle * 90)) % W;
+          const y = 22 + ((i * 41) % Math.max(40, H / 2 - 50));
+          ctx.fillRect(x, y, 2, 2);
+        }
+      } else {
+        for (let y = 25; y < H / 2; y += 32) {
+          ctx.beginPath();
+          ctx.moveTo(0, y + Math.sin(me.angle + y) * 8);
+          ctx.lineTo(W, y + Math.cos(me.angle + y) * 8);
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function renderFloorTexture() {
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = activeArena.accent || "#ff4a1e";
+      ctx.lineWidth = 1;
+
+      const horizon = H / 2;
+      const offset = (me.x + me.y) * 0.03;
+
+      for (let y = horizon + 18; y < H; y += 28) {
+        const spread = (y - horizon) / H;
+        ctx.beginPath();
+        ctx.moveTo(0, y + Math.sin(offset + y * 0.05) * spread * 16);
+        ctx.lineTo(W, y + Math.cos(offset + y * 0.04) * spread * 12);
+        ctx.stroke();
+      }
+
+      for (let i = -12; i <= 12; i++) {
+        const x1 = W / 2 + i * 38;
+        const x2 = W / 2 + i * 125;
+        ctx.beginPath();
+        ctx.moveTo(x1, horizon);
+        ctx.lineTo(x2, H);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    function renderWallTexture(x, y, w, h, rayIndex, corrected) {
+      ctx.save();
+
+      const alpha = Math.max(0.04, Math.min(0.20, 1 - corrected / 900));
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = activeArena.accent || "#ff4a1e";
+      ctx.lineWidth = 1;
+
+      if (activeArena.texture === "metal" || activeArena.texture === "tech") {
+        if (rayIndex % 9 === 0) {
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + h);
+          ctx.stroke();
+        }
+
+        if (rayIndex % 23 === 0) {
+          ctx.fillStyle = activeArena.accent || "#ff4a1e";
+          ctx.fillRect(x, y + h * 0.22, Math.max(1, w), 2);
+          ctx.fillRect(x, y + h * 0.72, Math.max(1, w), 2);
+        }
+      }
+
+      if (activeArena.texture === "toxic") {
+        if (rayIndex % 13 === 0) {
+          ctx.strokeStyle = "#a7ff8a";
+          ctx.beginPath();
+          ctx.moveTo(x, y + h * 0.15);
+          ctx.lineTo(x + w * 2, y + h * 0.35);
+          ctx.stroke();
+        }
+      }
+
+      if (activeArena.texture === "arena") {
+        if (rayIndex % 15 === 0) {
+          ctx.strokeStyle = "#ffc2ef";
+          ctx.beginPath();
+          ctx.moveTo(x, y + h * 0.15);
+          ctx.lineTo(x, y + h * 0.86);
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
+    }
+
     function render3D() {
       const sky = ctx.createLinearGradient(0, 0, 0, H / 2);
       sky.addColorStop(0, activeArena.sky1);
       sky.addColorStop(1, activeArena.sky2);
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, W, H / 2);
+      renderSkyTexture();
 
       const floor = ctx.createLinearGradient(0, H / 2, 0, H);
       floor.addColorStop(0, activeArena.floor1);
       floor.addColorStop(1, activeArena.floor2);
       ctx.fillStyle = floor;
       ctx.fillRect(0, H / 2, W, H / 2);
+      renderFloorTexture();
 
       const colWidth = W / RAYS;
 
@@ -1317,6 +1553,7 @@
         const y = H / 2 - wallHeight / 2;
 
         ctx.fillRect(x, y, Math.ceil(colWidth) + 1, wallHeight);
+        renderWallTexture(x, y, Math.ceil(colWidth) + 1, wallHeight, i, corrected);
 
         if (i % 11 === 0) {
           ctx.fillStyle = "rgba(255,255,255,0.07)";
@@ -1382,19 +1619,31 @@
       ctx.fillText("WEBSOCKET BLASTER", cx, bottom - 72);
 
       if (muzzleFlash > 0) {
-        const flashSize = 40 + muzzleFlash * 6;
+        const flashAlpha = muzzleFlash / 6;
+        const flashSize = 12 + muzzleFlash * 4;
 
-        ctx.fillStyle = "rgba(255, 230, 90, 0.85)";
+        ctx.fillStyle = `rgba(255, 230, 90, ${0.45 * flashAlpha})`;
         ctx.beginPath();
-        ctx.arc(cx, bottom - 230, flashSize, 0, Math.PI * 2);
+        ctx.arc(cx, bottom - 226, flashSize, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = "rgba(255, 80, 20, 0.75)";
+        ctx.fillStyle = `rgba(255, 80, 20, ${0.35 * flashAlpha})`;
         ctx.beginPath();
-        ctx.arc(cx, bottom - 230, flashSize * 0.55, 0, Math.PI * 2);
+        ctx.arc(cx, bottom - 226, flashSize * 0.55, 0, Math.PI * 2);
         ctx.fill();
 
-        muzzleFlash--;
+        ctx.strokeStyle = `rgba(255, 240, 160, ${0.55 * flashAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, bottom - 226);
+        ctx.lineTo(cx - flashSize * 0.9, bottom - 226 - flashSize * 0.45);
+        ctx.moveTo(cx, bottom - 226);
+        ctx.lineTo(cx + flashSize * 0.9, bottom - 226 - flashSize * 0.45);
+        ctx.moveTo(cx, bottom - 226);
+        ctx.lineTo(cx, bottom - 226 - flashSize * 0.9);
+        ctx.stroke();
+
+        muzzleFlash -= 0.75;
       }
 
       ctx.restore();
@@ -1404,7 +1653,7 @@
       if (damageFlash <= 0) return;
 
       ctx.save();
-      ctx.fillStyle = `rgba(255, 0, 0, ${damageFlash / 35})`;
+      ctx.fillStyle = `rgba(255, 0, 0, ${damageFlash / 55})`;
       ctx.fillRect(0, 0, W, H);
       ctx.restore();
 
@@ -1526,12 +1775,18 @@
 
         if (Math.abs(diff) < FOV / 2) {
           const screenX = W / 2 + (diff / (FOV / 2)) * (W / 2);
-          const size = Math.max(4, 90 / (dist / 100 + 1));
+          const size = Math.max(2, 36 / (dist / 120 + 1));
 
-          ctx.fillStyle = "rgba(255, 240, 120, 0.9)";
+          ctx.fillStyle = "rgba(255, 240, 120, 0.55)";
           ctx.beginPath();
           ctx.arc(screenX, H / 2, size, 0, Math.PI * 2);
           ctx.fill();
+
+          ctx.strokeStyle = "rgba(255, 120, 40, 0.45)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(screenX, H / 2, size + 3, 0, Math.PI * 2);
+          ctx.stroke();
         }
 
         if (s.life <= 0) {
@@ -1541,20 +1796,27 @@
     }
 
     function renderMiniMap() {
-      const scale = 0.095;
-      const offsetX = 15;
-      const offsetY = H - 285;
+      const mobile = W <= 780;
+      const scale = mobile ? 0.055 : 0.095;
+      const mapWidth = MAP[0].length * TILE * scale;
+      const mapHeight = MAP.length * TILE * scale;
+
+      const offsetX = mobile ? W - mapWidth - 14 : 15;
+      const offsetY = mobile ? 62 : H - 285;
 
       ctx.save();
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = mobile ? 0.76 : 0.85;
 
       ctx.fillStyle = "rgba(0,0,0,0.65)";
       ctx.fillRect(
         offsetX - 8,
         offsetY - 8,
-        MAP[0].length * TILE * scale + 16,
-        MAP.length * TILE * scale + 16
+        mapWidth + 16,
+        mapHeight + 16
       );
+
+      ctx.strokeStyle = activeArena.accent || "#ff4a1e";
+      ctx.strokeRect(offsetX - 8, offsetY - 8, mapWidth + 16, mapHeight + 16);
 
       for (let y = 0; y < MAP.length; y++) {
         for (let x = 0; x < MAP[y].length; x++) {
@@ -1570,7 +1832,7 @@
 
       ctx.fillStyle = "#ffe071";
       ctx.beginPath();
-      ctx.arc(offsetX + me.x * scale, offsetY + me.y * scale, 5, 0, Math.PI * 2);
+      ctx.arc(offsetX + me.x * scale, offsetY + me.y * scale, mobile ? 3.5 : 5, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.strokeStyle = "#ffe071";
@@ -1585,7 +1847,7 @@
       for (const p of players.values()) {
         ctx.fillStyle = "#62e6ff";
         ctx.beginPath();
-        ctx.arc(offsetX + p.x * scale, offsetY + p.y * scale, 4, 0, Math.PI * 2);
+        ctx.arc(offsetX + p.x * scale, offsetY + p.y * scale, mobile ? 3 : 4, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -1621,7 +1883,7 @@
       if (now - lastShotAt < 240) return;
       lastShotAt = now;
 
-      muzzleFlash = 8;
+      muzzleFlash = 4;
       playSound("shoot");
 
       send({
@@ -1855,6 +2117,10 @@
         clearKeys();
         controlsEnabled = true;
         canvas.focus();
+
+        if (controlsHelp) {
+          setTimeout(() => controlsHelp.classList.add("compact"), 4500);
+        }
       }, 300);
     });
 
