@@ -1,4 +1,3 @@
-@'
 const http = require("http");
 const WebSocket = require("ws");
 
@@ -33,6 +32,7 @@ const SPAWNS = {
     { x: 1300, y: 1050, angle: Math.PI },
     { x: 760, y: 570, angle: 0 }
   ],
+
   E1M2: [
     { x: 220, y: 220, angle: 0 },
     { x: 1500, y: 220, angle: Math.PI },
@@ -40,6 +40,7 @@ const SPAWNS = {
     { x: 1500, y: 1150, angle: Math.PI },
     { x: 880, y: 700, angle: 0 }
   ],
+
   ARENA: [
     { x: 300, y: 300, angle: 0 },
     { x: 1450, y: 300, angle: Math.PI },
@@ -47,6 +48,7 @@ const SPAWNS = {
     { x: 1450, y: 1200, angle: Math.PI },
     { x: 880, y: 760, angle: 0 }
   ],
+
   EXPO: [
     { x: 240, y: 240, angle: 0 },
     { x: 1150, y: 240, angle: Math.PI },
@@ -208,7 +210,9 @@ wss.on("connection", (ws) => {
       };
 
       room.messages.push(chatMessage);
-      if (room.messages.length > 40) room.messages.shift();
+      if (room.messages.length > 40) {
+        room.messages.shift();
+      }
 
       broadcast(ws.roomName, {
         type: "chat",
@@ -307,4 +311,3 @@ wss.on("connection", (ws) => {
 server.listen(PORT, () => {
   console.log(`DOOM WebSocket Multiplayer Arena running on port ${PORT}`);
 });
-'@ | Set-Content -Path "C:\proyectos\websocket-doom-arena\server\server.js" -Encoding UTF8
