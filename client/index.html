@@ -23,6 +23,7 @@
       width: 100vw;
       height: 100vh;
       background: #111;
+      outline: none;
     }
 
     .hud {
@@ -251,6 +252,7 @@
       align-items: center;
       justify-content: center;
       color: white;
+      pointer-events: auto;
     }
 
     .start-card {
@@ -326,6 +328,19 @@
       color: #ccc;
     }
 
+    .control-state {
+      position: absolute;
+      top: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.75);
+      border: 1px solid #ffbc58;
+      color: #ffdf7e;
+      padding: 6px 12px;
+      font-size: 12px;
+      box-shadow: 0 0 14px rgba(255, 100, 0, 0.3);
+    }
+
     @media (max-width: 780px) {
       .chat-panel {
         right: 8px;
@@ -355,13 +370,15 @@
 </head>
 
 <body>
-  <canvas id="game"></canvas>
+  <canvas id="game" tabindex="0"></canvas>
 
   <div class="hud">
     <div class="top-bar">
       <div class="title">DOOM WEBSOCKET MULTIPLAYER ARENA</div>
       <div id="connectionStatus" class="status offline">DESCONECTADO</div>
     </div>
+
+    <div id="controlState" class="control-state">CONTROLES INACTIVOS - HAZ CLIC EN EL JUEGO</div>
 
     <div class="left-panel">
       <div class="panel-title">ESTADO DE LA ARENA</div>
@@ -374,11 +391,12 @@
 
     <div class="controls-help">
       <b>CONTROLES</b><br>
+      Clic en el juego: activar controles<br>
       W/S: avanzar/retroceder<br>
       A/D: girar<br>
       Flechas: movimiento<br>
       Espacio: disparar<br>
-      Enter: enviar chat
+      Chat: desactiva controles
     </div>
 
     <div class="chat-panel">
@@ -441,6 +459,7 @@
     const ctx = canvas.getContext("2d");
 
     const connectionStatus = document.getElementById("connectionStatus");
+    const controlState = document.getElementById("controlState");
     const messagesEl = document.getElementById("messages");
     const chatText = document.getElementById("chatText");
     const sendBtn = document.getElementById("sendBtn");
@@ -504,6 +523,8 @@
     let connected = false;
 
     const keys = {};
+    let controlsEnabled = false;
+
     const players = new Map();
     const shots = [];
 
@@ -515,6 +536,32 @@
       score: 0,
       alive: true
     };
+
+    function setControlState(enabled) {
+      controlsEnabled = enabled;
+      clearKeys();
+
+      if (enabled) {
+        controlState.textContent = "CONTROLES ACTIVOS";
+        controlState.style.color = "#9cff9c";
+        controlState.style.borderColor = "#9cff9c";
+      } else {
+        controlState.textContent = "CONTROLES INACTIVOS - HAZ CLIC EN EL JUEGO";
+        controlState.style.color = "#ffdf7e";
+        controlState.style.borderColor = "#ffbc58";
+      }
+    }
+
+    function clearKeys() {
+      for (const key in keys) {
+        delete keys[key];
+      }
+    }
+
+    function isWriting() {
+      const el = document.activeElement;
+      return el === chatText || el === nickInput || el === roomInput || el === startBtn || el === sendBtn;
+    }
 
     function getWsUrl() {
       const host = location.hostname;
@@ -541,10 +588,12 @@
         });
 
         addSystem("Conexión WebSocket establecida correctamente");
+        addSystem("Haz clic dentro del juego para activar los controles");
       };
 
       ws.onclose = () => {
         connected = false;
+        setControlState(false);
         connectionStatus.textContent = "DESCONECTADO";
         connectionStatus.classList.add("offline");
         addSystem("Conexión cerrada con el servidor");
@@ -720,22 +769,28 @@
 
     function movePlayer() {
       if (!me.alive) return;
+      if (!controlsEnabled) return;
 
-      const speed = keys["Shift"] ? 4.3 : 2.6;
+      if (isWriting()) {
+        setControlState(false);
+        return;
+      }
+
+      const speed = keys["ShiftLeft"] || keys["ShiftRight"] ? 4.3 : 2.6;
       const rotSpeed = 0.045;
 
-      if (keys["a"] || keys["A"] || keys["ArrowLeft"]) me.angle -= rotSpeed;
-      if (keys["d"] || keys["D"] || keys["ArrowRight"]) me.angle += rotSpeed;
+      if (keys["KeyA"] || keys["ArrowLeft"]) me.angle -= rotSpeed;
+      if (keys["KeyD"] || keys["ArrowRight"]) me.angle += rotSpeed;
 
       let dx = 0;
       let dy = 0;
 
-      if (keys["w"] || keys["W"] || keys["ArrowUp"]) {
+      if (keys["KeyW"] || keys["ArrowUp"]) {
         dx += Math.cos(me.angle) * speed;
         dy += Math.sin(me.angle) * speed;
       }
 
-      if (keys["s"] || keys["S"] || keys["ArrowDown"]) {
+      if (keys["KeyS"] || keys["ArrowDown"]) {
         dx -= Math.cos(me.angle) * speed;
         dy -= Math.sin(me.angle) * speed;
       }
@@ -802,7 +857,40 @@
 
       renderRemotePlayers();
       renderShots();
+      renderWeapon();
       renderMiniMap();
+    }
+
+    function renderWeapon() {
+      const cx = W / 2;
+      const bottom = H;
+
+      ctx.save();
+
+      ctx.fillStyle = "rgba(20,20,20,0.95)";
+      ctx.beginPath();
+      ctx.moveTo(cx - 90, bottom);
+      ctx.lineTo(cx - 45, bottom - 95);
+      ctx.lineTo(cx + 45, bottom - 95);
+      ctx.lineTo(cx + 90, bottom);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(85,85,85,0.95)";
+      ctx.fillRect(cx - 38, bottom - 145, 76, 78);
+
+      ctx.fillStyle = "rgba(25,25,25,0.95)";
+      ctx.fillRect(cx - 24, bottom - 175, 48, 48);
+
+      ctx.fillStyle = "rgba(190,60,25,0.95)";
+      ctx.fillRect(cx - 30, bottom - 112, 60, 8);
+
+      ctx.fillStyle = "#ffdf7e";
+      ctx.font = "12px Courier New";
+      ctx.textAlign = "center";
+      ctx.fillText("PLASMA", cx, bottom - 84);
+
+      ctx.restore();
     }
 
     function normalizeAngle(a) {
@@ -884,12 +972,22 @@
       ctx.globalAlpha = 0.85;
 
       ctx.fillStyle = "rgba(0,0,0,0.65)";
-      ctx.fillRect(offsetX - 8, offsetY - 8, MAP[0].length * TILE * scale + 16, MAP.length * TILE * scale + 16);
+      ctx.fillRect(
+        offsetX - 8,
+        offsetY - 8,
+        MAP[0].length * TILE * scale + 16,
+        MAP.length * TILE * scale + 16
+      );
 
       for (let y = 0; y < MAP.length; y++) {
         for (let x = 0; x < MAP[y].length; x++) {
           ctx.fillStyle = MAP[y][x] === "#" ? "#8b2b18" : "#181818";
-          ctx.fillRect(offsetX + x * TILE * scale, offsetY + y * TILE * scale, TILE * scale - 1, TILE * scale - 1);
+          ctx.fillRect(
+            offsetX + x * TILE * scale,
+            offsetY + y * TILE * scale,
+            TILE * scale - 1,
+            TILE * scale - 1
+          );
         }
       }
 
@@ -988,26 +1086,96 @@
       chatText.value = "";
     }
 
-    window.addEventListener("keydown", (e) => {
-      keys[e.key] = true;
+    const allowedKeys = [
+      "KeyW",
+      "KeyA",
+      "KeyS",
+      "KeyD",
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+      "ShiftLeft",
+      "ShiftRight",
+      "Space"
+    ];
 
-      if (e.key === " ") {
-        e.preventDefault();
-        shoot();
+    window.addEventListener("keydown", (e) => {
+      if (isWriting()) {
+        if (document.activeElement === chatText && e.key === "Enter") {
+          sendChat();
+        }
+        clearKeys();
+        return;
       }
 
-      if (e.key === "Enter" && document.activeElement === chatText) {
-        sendChat();
+      if (!controlsEnabled) {
+        clearKeys();
+        return;
+      }
+
+      if (!allowedKeys.includes(e.code)) {
+        return;
+      }
+
+      e.preventDefault();
+      keys[e.code] = true;
+
+      if (e.code === "Space") {
+        shoot();
       }
     });
 
     window.addEventListener("keyup", (e) => {
-      keys[e.key] = false;
+      delete keys[e.code];
     });
 
-    sendBtn.addEventListener("click", sendChat);
+    window.addEventListener("blur", () => {
+      setControlState(false);
+    });
+
+    window.addEventListener("focus", () => {
+      clearKeys();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        setControlState(false);
+      } else {
+        clearKeys();
+      }
+    });
+
+    document.addEventListener("mouseleave", () => {
+      setControlState(false);
+    });
+
+    chatText.addEventListener("focus", () => {
+      setControlState(false);
+    });
+
+    nickInput.addEventListener("focus", () => {
+      setControlState(false);
+    });
+
+    roomInput.addEventListener("focus", () => {
+      setControlState(false);
+    });
+
+    sendBtn.addEventListener("click", () => {
+      setControlState(false);
+      sendChat();
+    });
+
+    canvas.addEventListener("click", () => {
+      if (!connected) return;
+      canvas.focus();
+      setControlState(true);
+    });
 
     startBtn.addEventListener("click", () => {
+      setControlState(false);
+
       myNick = nickInput.value.trim() || "Marine";
       currentRoom = roomInput.value;
 
