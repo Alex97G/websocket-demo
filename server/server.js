@@ -10,6 +10,7 @@ const server = http.createServer((req, res) => {
       ok: true,
       sistema: "DOOM WebSocket Multiplayer Arena",
       modo: "multijugador-tiempo-real",
+      version: "2.0-mapas-salas-aim",
       puerto: PORT
     }));
     return;
@@ -23,6 +24,36 @@ const wss = new WebSocket.Server({ server });
 
 const rooms = new Map();
 
+const SPAWNS = {
+  E1M1: [
+    { x: 180, y: 180, angle: 0 },
+    { x: 1250, y: 180, angle: Math.PI },
+    { x: 180, y: 1050, angle: 0 },
+    { x: 1300, y: 1050, angle: Math.PI },
+    { x: 760, y: 570, angle: 0 }
+  ],
+  E1M2: [
+    { x: 220, y: 220, angle: 0 },
+    { x: 1500, y: 220, angle: Math.PI },
+    { x: 220, y: 1150, angle: 0 },
+    { x: 1500, y: 1150, angle: Math.PI },
+    { x: 880, y: 700, angle: 0 }
+  ],
+  ARENA: [
+    { x: 300, y: 300, angle: 0 },
+    { x: 1450, y: 300, angle: Math.PI },
+    { x: 300, y: 1200, angle: 0 },
+    { x: 1450, y: 1200, angle: Math.PI },
+    { x: 880, y: 760, angle: 0 }
+  ],
+  EXPO: [
+    { x: 240, y: 240, angle: 0 },
+    { x: 1150, y: 240, angle: Math.PI },
+    { x: 240, y: 900, angle: 0 },
+    { x: 1150, y: 900, angle: Math.PI }
+  ]
+};
+
 function getRoom(roomName) {
   if (!rooms.has(roomName)) {
     rooms.set(roomName, {
@@ -31,6 +62,7 @@ function getRoom(roomName) {
       messages: []
     });
   }
+
   return rooms.get(roomName);
 }
 
@@ -54,13 +86,23 @@ function makeId() {
   return "P" + Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+function cleanNick(nick) {
+  return String(nick || "Jugador")
+    .replace(/[<>]/g, "")
+    .trim()
+    .slice(0, 24) || "Jugador";
+}
+
 function createPlayer(ws) {
+  const list = SPAWNS[ws.roomName] || SPAWNS.E1M1;
+  const spawn = list[Math.floor(Math.random() * list.length)];
+
   return {
     id: ws.id,
     nick: ws.nick,
-    x: 180 + Math.random() * 180,
-    y: 180 + Math.random() * 180,
-    angle: 0,
+    x: spawn.x,
+    y: spawn.y,
+    angle: spawn.angle,
     hp: 100,
     score: 0,
     alive: true
@@ -97,7 +139,7 @@ wss.on("connection", (ws) => {
       }
 
       ws.roomName = msg.room || "E1M1";
-      ws.nick = String(msg.nick || "Jugador").slice(0, 24);
+      ws.nick = cleanNick(msg.nick);
       ws.joined = true;
 
       const room = getRoom(ws.roomName);
@@ -133,9 +175,9 @@ wss.on("connection", (ws) => {
 
       if (!player) return;
 
-      player.x = msg.x;
-      player.y = msg.y;
-      player.angle = msg.angle;
+      player.x = Number(msg.x) || player.x;
+      player.y = Number(msg.y) || player.y;
+      player.angle = Number(msg.angle) || player.angle;
       player.hp = msg.hp ?? player.hp;
       player.alive = msg.alive ?? player.alive;
 
@@ -150,10 +192,17 @@ wss.on("connection", (ws) => {
     if (msg.type === "chat") {
       const room = getRoom(ws.roomName);
 
+      const text = String(msg.text || "")
+        .replace(/[<>]/g, "")
+        .trim()
+        .slice(0, 160);
+
+      if (!text) return;
+
       const chatMessage = {
         id: ws.id,
         nick: ws.nick,
-        text: String(msg.text || "").slice(0, 160),
+        text,
         time: Date.now()
       };
 
@@ -173,9 +222,9 @@ wss.on("connection", (ws) => {
         type: "shoot",
         id: ws.id,
         nick: ws.nick,
-        x: msg.x,
-        y: msg.y,
-        angle: msg.angle,
+        x: Number(msg.x) || 0,
+        y: Number(msg.y) || 0,
+        angle: Number(msg.angle) || 0,
         time: Date.now()
       });
 
@@ -188,6 +237,7 @@ wss.on("connection", (ws) => {
       const shooter = room.players.get(ws.id);
 
       if (!target || !shooter) return;
+      if (!target.alive || !shooter.alive) return;
 
       target.hp = Math.max(0, target.hp - 20);
 
@@ -219,8 +269,12 @@ wss.on("connection", (ws) => {
 
       if (!player) return;
 
-      player.x = 180 + Math.random() * 180;
-      player.y = 180 + Math.random() * 180;
+      const list = SPAWNS[ws.roomName] || SPAWNS.E1M1;
+      const spawn = list[Math.floor(Math.random() * list.length)];
+
+      player.x = spawn.x;
+      player.y = spawn.y;
+      player.angle = spawn.angle;
       player.hp = 100;
       player.alive = true;
 
