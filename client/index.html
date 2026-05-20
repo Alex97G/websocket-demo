@@ -1,974 +1,1025 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chat · Live</title>
-<!-- VERSION_BOT_PRIVADO_SIN_NOTIFICACIONES_2026 -->
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <title>DOOM WebSocket Multiplayer Arena</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<style>
-  *, *::before, *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-
-  :root {
-    --bg: #f7f6f3;
-    --surface: #ffffff;
-    --surface2: #f0efe9;
-    --border: #e8e6df;
-    --text: #1a1917;
-    --text-muted: #9a9690;
-    --accent: #2d6a4f;
-    --accent-light: #e8f4f0;
-    --me: #2d6a4f;
-    --me-text: #ffffff;
-    --other: #ffffff;
-    --other-text: #1a1917;
-    --bot: #1a1917;
-    --bot-text: #ffffff;
-    --system: #9a9690;
-    --radius: 16px;
-    --radius-sm: 10px;
-    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
-  }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    height: 100dvh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-  }
-
-  .app {
-    width: 100%;
-    max-width: 900px;
-    height: min(92dvh, 700px);
-    display: grid;
-    grid-template-columns: 230px 1fr;
-    background: var(--surface);
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow);
-    overflow: hidden;
-  }
-
-  .sidebar {
-    background: var(--surface2);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    padding: 20px 16px;
-    gap: 18px;
-  }
-
-  .logo {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .sidebar-section label {
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    display: block;
-    margin-bottom: 8px;
-  }
-
-  .input-clean {
-    width: 100%;
-    padding: 9px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13.5px;
-    color: var(--text);
-    outline: none;
-  }
-
-  .input-clean:focus {
-    border-color: var(--accent);
-  }
-
-  .mode-tabs {
-    display: flex;
-    gap: 4px;
-    background: var(--border);
-    border-radius: var(--radius-sm);
-    padding: 3px;
-  }
-
-  .mode-tab {
-    flex: 1;
-    padding: 7px;
-    border: none;
-    background: transparent;
-    border-radius: 7px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-muted);
-    cursor: pointer;
-  }
-
-  .mode-tab.active {
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  }
-
-  .btn-connect {
-    width: 100%;
-    padding: 10px;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: var(--radius-sm);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13.5px;
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .btn-connect:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .small-help {
-    font-size: 10.5px;
-    color: var(--text-muted);
-    line-height: 1.4;
-    margin-top: -8px;
-  }
-
-  .status-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--text-muted);
-  }
-
-  .status-dot.online {
-    background: #52b788;
-  }
-
-  .users-section {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .users-list {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .user-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: 8px;
-    font-size: 13px;
-    background: rgba(255,255,255,0.35);
-  }
-
-  .user-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #52b788;
-  }
-
-  .qr-wrap {
-    text-align: center;
-    margin-top: auto;
-  }
-
-  .qr-wrap img {
-    width: 86px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: white;
-    padding: 4px;
-  }
-
-  .qr-label {
-    font-size: 10.5px;
-    color: var(--text-muted);
-    margin-bottom: 5px;
-  }
-
-  .main {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .chat-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .chat-header-title {
-    font-size: 14px;
-    font-weight: 500;
-  }
-
-  .chat-header-sub {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 1px;
-  }
-
-  .badge {
-    padding: 5px 8px;
-    border-radius: 999px;
-    font-size: 11px;
-    background: var(--accent-light);
-    color: var(--accent);
-    font-weight: 600;
-  }
-
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .msg-row {
-    display: flex;
-    flex-direction: column;
-    max-width: 72%;
-    animation: fadeUp 0.2s ease;
-  }
-
-  .msg-row.me {
-    align-self: flex-end;
-    align-items: flex-end;
-  }
-
-  .msg-row.other {
-    align-self: flex-start;
-    align-items: flex-start;
-  }
-
-  .msg-row.bot {
-    align-self: flex-start;
-    align-items: flex-start;
-    max-width: 85%;
-  }
-
-  .msg-row.system {
-    align-self: center;
-    max-width: 100%;
-  }
-
-  .msg-bubble {
-    padding: 9px 13px;
-    border-radius: 14px;
-    font-size: 13.5px;
-    line-height: 1.5;
-    word-break: break-word;
-  }
-
-  .me .msg-bubble {
-    background: var(--me);
-    color: var(--me-text);
-    border-bottom-right-radius: 4px;
-  }
-
-  .other .msg-bubble {
-    background: var(--other);
-    color: var(--other-text);
-    border: 1px solid var(--border);
-    border-bottom-left-radius: 4px;
-  }
-
-  .bot .msg-bubble {
-    background: var(--bot);
-    color: var(--bot-text);
-    border-bottom-left-radius: 4px;
-    font-family: 'DM Mono', monospace;
-    font-size: 12.5px;
-    white-space: pre-wrap;
-  }
-
-  .system .msg-bubble {
-    background: transparent;
-    color: var(--system);
-    font-size: 11.5px;
-    text-align: center;
-  }
-
-  .msg-meta {
-    font-size: 10.5px;
-    color: var(--text-muted);
-    margin-top: 3px;
-    padding: 0 4px;
-  }
-
-  @keyframes fadeUp {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
+  <style>
+    * {
+      box-sizing: border-box;
     }
 
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .input-area {
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
-  }
-
-  .emoji-bar {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-  }
-
-  .emoji-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 4px 7px;
-    font-size: 15px;
-    cursor: pointer;
-  }
-
-  .input-row {
-    display: flex;
-    gap: 8px;
-    align-items: flex-end;
-  }
-
-  .msg-input {
-    flex: 1;
-    padding: 10px 14px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--surface2);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13.5px;
-    color: var(--text);
-    outline: none;
-    resize: none;
-    min-height: 42px;
-    max-height: 100px;
-    line-height: 1.4;
-  }
-
-  .btn-send {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    border: none;
-    background: var(--accent);
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-  }
-
-  @media (max-width: 600px) {
     body {
-      padding: 0;
-      align-items: stretch;
+      margin: 0;
+      overflow: hidden;
+      background: #050505;
+      color: #f4f4f4;
+      font-family: "Courier New", monospace;
     }
 
-    .app {
-      grid-template-columns: 1fr;
-      grid-template-rows: auto 1fr;
-      height: 100dvh;
-      border-radius: 0;
+    #game {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: #111;
+    }
+
+    .hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .top-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 58px;
+      background: linear-gradient(180deg, rgba(80,0,0,0.95), rgba(10,10,10,0.8));
+      border-bottom: 2px solid #ff3b1f;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      text-shadow: 0 0 8px #ff2a00;
+    }
+
+    .title {
+      font-size: 20px;
+      font-weight: bold;
+      color: #ffdd9a;
+      letter-spacing: 2px;
+    }
+
+    .status {
+      font-size: 13px;
+      color: #9cff9c;
+    }
+
+    .status.offline {
+      color: #ff5555;
+    }
+
+    .left-panel {
+      position: absolute;
+      top: 72px;
+      left: 12px;
+      width: 250px;
+      background: rgba(5, 5, 5, 0.78);
+      border: 2px solid #803020;
+      box-shadow: 0 0 18px rgba(255, 40, 0, 0.35);
+      padding: 10px;
+    }
+
+    .panel-title {
+      color: #ffbc58;
+      font-weight: bold;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #773322;
+      padding-bottom: 5px;
+    }
+
+    .stat {
+      font-size: 13px;
+      margin: 5px 0;
+    }
+
+    .players {
+      margin-top: 8px;
+      max-height: 140px;
+      overflow: hidden;
+    }
+
+    .player-row {
+      font-size: 12px;
+      padding: 3px 0;
+      color: #ddd;
+    }
+
+    .chat-panel {
+      position: absolute;
+      right: 14px;
+      bottom: 96px;
+      width: 380px;
+      height: 270px;
+      background: rgba(0, 0, 0, 0.72);
+      border: 2px solid #7a2b1d;
+      box-shadow: 0 0 22px rgba(255, 60, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      pointer-events: auto;
+    }
+
+    .chat-header {
+      background: linear-gradient(90deg, #6c1308, #1c0806);
+      padding: 8px;
+      color: #ffd26b;
+      font-weight: bold;
+      font-size: 13px;
+      border-bottom: 1px solid #a33a22;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 8px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .msg {
+      margin-bottom: 5px;
+    }
+
+    .msg .nick {
+      color: #ffb347;
+      font-weight: bold;
+    }
+
+    .system {
+      color: #7ee7ff;
+      font-style: italic;
+    }
+
+    .chat-input {
+      display: flex;
+      border-top: 1px solid #7a2b1d;
+    }
+
+    #chatText {
+      flex: 1;
+      background: #111;
       border: none;
-      max-width: 100%;
+      color: #fff;
+      padding: 10px;
+      outline: none;
+      font-family: inherit;
     }
 
-    .sidebar {
+    #sendBtn {
+      width: 110px;
+      border: none;
+      background: #9b1d0f;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    #sendBtn:hover {
+      background: #d12a13;
+    }
+
+    .bottom-hud {
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      transform: translateX(-50%);
+      width: min(760px, 96vw);
+      height: 72px;
+      background: linear-gradient(180deg, #2a2a2a, #090909);
+      border: 3px solid #5c5c5c;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      text-align: center;
+      box-shadow: 0 0 18px rgba(0,0,0,0.8);
+    }
+
+    .doom-box {
+      border-right: 2px solid #555;
+      padding: 8px;
+    }
+
+    .doom-box:last-child {
       border-right: none;
-      border-bottom: 1px solid var(--border);
-      padding: 14px;
-      flex-direction: row;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: flex-end;
     }
 
-    .logo {
-      display: none;
+    .doom-label {
+      color: #aaa;
+      font-size: 12px;
     }
 
-    .sidebar-section {
-      flex: 1;
-      min-width: 120px;
+    .doom-value {
+      color: #ffdf7e;
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 4px;
     }
 
-    .users-section,
-    .qr-wrap,
-    .small-help {
-      display: none;
+    .center-crosshair {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 28px;
+      height: 28px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
     }
 
-    .btn-connect {
-      min-width: 90px;
-      flex: 1;
+    .center-crosshair::before,
+    .center-crosshair::after {
+      content: "";
+      position: absolute;
+      background: rgba(255, 220, 120, 0.9);
+      box-shadow: 0 0 8px #ff4a1e;
     }
 
-    .msg-row {
-      max-width: 86%;
+    .center-crosshair::before {
+      left: 13px;
+      top: 0;
+      width: 2px;
+      height: 28px;
     }
-  }
-</style>
+
+    .center-crosshair::after {
+      left: 0;
+      top: 13px;
+      width: 28px;
+      height: 2px;
+    }
+
+    .start-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background:
+        radial-gradient(circle at center, rgba(120,0,0,0.45), rgba(0,0,0,0.96)),
+        linear-gradient(180deg, #170000, #000);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+    }
+
+    .start-card {
+      width: min(520px, 92vw);
+      border: 3px solid #b8331c;
+      background: rgba(0,0,0,0.8);
+      padding: 28px;
+      box-shadow: 0 0 40px rgba(255,50,0,0.55);
+      text-align: center;
+    }
+
+    .start-card h1 {
+      color: #ffca66;
+      margin: 0 0 8px;
+      font-size: 32px;
+      text-shadow: 0 0 12px #ff2a00;
+    }
+
+    .start-card p {
+      color: #ddd;
+      font-size: 14px;
+      margin-bottom: 18px;
+    }
+
+    .form-row {
+      margin-bottom: 12px;
+      text-align: left;
+    }
+
+    .form-row label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: #ffbc58;
+    }
+
+    .form-row input,
+    .form-row select {
+      width: 100%;
+      padding: 11px;
+      background: #111;
+      color: white;
+      border: 1px solid #9b2c1a;
+      font-family: inherit;
+    }
+
+    .start-btn {
+      width: 100%;
+      padding: 13px;
+      background: #b9230f;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 16px;
+      margin-top: 8px;
+    }
+
+    .start-btn:hover {
+      background: #e03117;
+    }
+
+    .controls-help {
+      position: absolute;
+      left: 14px;
+      bottom: 94px;
+      width: 250px;
+      background: rgba(0,0,0,0.68);
+      border: 1px solid #733020;
+      padding: 8px;
+      font-size: 12px;
+      color: #ccc;
+    }
+
+    @media (max-width: 780px) {
+      .chat-panel {
+        right: 8px;
+        left: 8px;
+        width: auto;
+        height: 220px;
+      }
+
+      .left-panel,
+      .controls-help {
+        display: none;
+      }
+
+      .title {
+        font-size: 14px;
+      }
+
+      .bottom-hud {
+        height: 62px;
+      }
+
+      .doom-value {
+        font-size: 17px;
+      }
+    }
+  </style>
 </head>
 
 <body>
+  <canvas id="game"></canvas>
 
-<div class="app">
-
-  <div class="sidebar">
-    <div class="logo">Chat · Live</div>
-
-    <div class="sidebar-section">
-      <label>Usuario</label>
-      <input class="input-clean" id="username" placeholder="Tu nombre">
+  <div class="hud">
+    <div class="top-bar">
+      <div class="title">DOOM WEBSOCKET MULTIPLAYER ARENA</div>
+      <div id="connectionStatus" class="status offline">DESCONECTADO</div>
     </div>
 
-    <div class="sidebar-section">
-      <label>Sala</label>
-      <input class="input-clean" id="room" placeholder="ej: 1002">
+    <div class="left-panel">
+      <div class="panel-title">ESTADO DE LA ARENA</div>
+      <div class="stat">Jugador: <span id="hudNick">---</span></div>
+      <div class="stat">Sala: <span id="hudRoom">---</span></div>
+      <div class="stat">ID: <span id="hudId">---</span></div>
+      <div class="stat">Jugadores conectados:</div>
+      <div id="playersList" class="players"></div>
     </div>
 
-    <div class="sidebar-section">
-      <label>Modo</label>
-      <div class="mode-tabs">
-        <button class="mode-tab active" id="chatTab" onclick="setMode('chat')">👥 Chat</button>
-        <button class="mode-tab" id="botTab" onclick="setMode('bot')">🤖 Bot</button>
+    <div class="controls-help">
+      <b>CONTROLES</b><br>
+      W/S: avanzar/retroceder<br>
+      A/D: girar<br>
+      Flechas: movimiento<br>
+      Espacio: disparar<br>
+      Enter: enviar chat
+    </div>
+
+    <div class="chat-panel">
+      <div class="chat-header">ARENA CHAT / EVENTOS WEBSOCKET</div>
+      <div id="messages"></div>
+      <div class="chat-input">
+        <input id="chatText" placeholder="Escribe mensaje..." maxlength="160" />
+        <button id="sendBtn">ENVIAR</button>
       </div>
     </div>
 
-    <button class="btn-connect" onclick="connect()" id="connectBtn">Conectar</button>
+    <div class="center-crosshair"></div>
 
-    <div class="small-help">
-      En modo Chat hablas con la sala. En modo Bot la conversación es privada con el asistente.
-    </div>
-
-    <div class="status-row">
-      <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">Desconectado</span>
-    </div>
-
-    <div class="users-section">
-      <label style="font-size:11px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:8px;">
-        Conectados
-      </label>
-      <div class="users-list" id="usersList"></div>
-    </div>
-
-    <div class="qr-wrap">
-      <div class="qr-label">Compartir sala</div>
-      <img id="qrImg" src="" alt="">
-    </div>
-  </div>
-
-  <div class="main">
-    <div class="chat-header">
-      <div>
-        <div class="chat-header-title" id="headerTitle">Sin sala</div>
-        <div class="chat-header-sub" id="headerSub">Conecta para empezar</div>
+    <div class="bottom-hud">
+      <div class="doom-box">
+        <div class="doom-label">VIDA</div>
+        <div id="hpValue" class="doom-value">100</div>
       </div>
-
-      <span class="badge" id="modeBadge">Chat</span>
-    </div>
-
-    <div class="chat-messages" id="chat"></div>
-
-    <div class="input-area">
-      <div class="emoji-bar">
-        <button class="emoji-btn" onclick="addEmoji('👍')">👍</button>
-        <button class="emoji-btn" onclick="addEmoji('😂')">😂</button>
-        <button class="emoji-btn" onclick="addEmoji('🔥')">🔥</button>
-        <button class="emoji-btn" onclick="addEmoji('❤️')">❤️</button>
-        <button class="emoji-btn" onclick="addEmoji('✅')">✅</button>
-        <button class="emoji-btn" onclick="addEmoji('🤔')">🤔</button>
-        <button class="emoji-btn" onclick="addEmoji('👏')">👏</button>
-        <button class="emoji-btn" onclick="addEmoji('😮')">😮</button>
+      <div class="doom-box">
+        <div class="doom-label">SCORE</div>
+        <div id="scoreValue" class="doom-value">0</div>
       </div>
-
-      <div class="input-row">
-        <textarea class="msg-input" id="message" placeholder="Escribe un mensaje..." rows="1"
-          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-        <button class="btn-send" onclick="send()">↑</button>
+      <div class="doom-box">
+        <div class="doom-label">ROOM</div>
+        <div id="roomValue" class="doom-value">E1M1</div>
+      </div>
+      <div class="doom-box">
+        <div class="doom-label">ONLINE</div>
+        <div id="onlineValue" class="doom-value">1</div>
       </div>
     </div>
   </div>
 
-</div>
-
-<script>
-let socket = null;
-let mode = "chat";
-let myUsername = "";
-let connectedUsers = [];
-let currentRoom = "";
-let isAuthenticated = false;
-let pendingJoin = null;
-let manualClose = false;
-
-const CLIENT_VERSION = "SALAS_PERSISTENTES_CAMBIO_SALA_2026_05_16";
-
-const params = new URLSearchParams(window.location.search);
-
-const DEFAULT_WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") +
-  "websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com/";
-
-const WS_URL = params.get("ws") || localStorage.getItem("ws_url") || DEFAULT_WS_URL;
-
-const BASE_URL = window.location.origin + window.location.pathname;
-
-if (params.get("room")) {
-  document.getElementById("room").value = params.get("room");
-}
-
-function playSound() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-
-    o.connect(g);
-    g.connect(ctx.destination);
-
-    o.frequency.value = 880;
-    o.type = "sine";
-
-    g.gain.setValueAtTime(0.1, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-
-    o.start(ctx.currentTime);
-    o.stop(ctx.currentTime + 0.3);
-  } catch(e) {}
-}
-
-function setMode(m) {
-  mode = m;
-
-  document.getElementById("chatTab").classList.toggle("active", m === "chat");
-  document.getElementById("botTab").classList.toggle("active", m === "bot");
-
-  document.getElementById("modeBadge").textContent = m === "bot" ? "Bot privado" : "Chat";
-  document.getElementById("chat").innerHTML = "";
-
-  if (socket && socket.readyState === WebSocket.OPEN && isAuthenticated) {
-    sendJoinOrChange(true);
-  }
-}
-
-function getFormData() {
-  const room = document.getElementById("room").value.trim();
-  const username = document.getElementById("username").value.trim();
-
-  return { room, username };
-}
-
-function updateShareQr(room) {
-  const shareURL = BASE_URL + "?room=" + encodeURIComponent(room);
-
-  document.getElementById("qrImg").src =
-    "https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=" +
-    encodeURIComponent(shareURL);
-}
-
-function updateHeader(room) {
-  document.getElementById("headerTitle").textContent = "Sala · " + room;
-  document.getElementById("headerSub").textContent =
-    mode === "bot" ? "Conversación privada con el asistente" : "Chat en grupo";
-
-  document.getElementById("modeBadge").textContent =
-    mode === "bot" ? "Bot privado" : "Chat";
-}
-
-function connect() {
-  const { room, username } = getFormData();
-
-  if (!room || !username) {
-    alert("Completa usuario y sala");
-    return;
-  }
-
-  myUsername = username;
-  currentRoom = room;
-  connectedUsers = [];
-
-  updateShareQr(room);
-  updateHeader(room);
-  renderUsers();
-
-  document.getElementById("chat").innerHTML = "";
-  document.getElementById("connectBtn").disabled = true;
-  document.getElementById("connectBtn").textContent = "Conectando...";
-
-  pendingJoin = { username, room, mode };
-
-  if (socket && socket.readyState === WebSocket.OPEN && isAuthenticated) {
-    sendJoinOrChange(true);
-    document.getElementById("connectBtn").disabled = false;
-    document.getElementById("connectBtn").textContent = "Cambiar sala";
-    return;
-  }
-
-  openSocket();
-}
-
-function openSocket() {
-  manualClose = false;
-  isAuthenticated = false;
-
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    manualClose = true;
-    socket.close();
-  }
-
-  socket = new WebSocket(WS_URL);
-
-  socket.onopen = () => {
-    socket.send(JSON.stringify({
-      type: "auth",
-      password: "1234"
-    }));
-
-    setStatus(true);
-  };
-
-  socket.onerror = () => {
-    log("Error de conexión ❌. Revisa la ruta del WebSocket: " + WS_URL, "system");
-    setStatus(false);
-
-    document.getElementById("connectBtn").disabled = false;
-    document.getElementById("connectBtn").textContent = "Conectar";
-  };
-
-  socket.onclose = () => {
-    setStatus(false);
-
-    document.getElementById("connectBtn").disabled = false;
-    document.getElementById("connectBtn").textContent = "Conectar";
-
-    connectedUsers = [];
-    renderUsers();
-
-    if (!manualClose) {
-      log("Desconectado ⚠️", "system");
-    }
-  };
-
-  socket.onmessage = handleSocketMessage;
-}
-
-function sendJoinOrChange(isChange) {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-
-  const { room, username } = getFormData();
-
-  pendingJoin = {
-    username: username || myUsername || "Invitado",
-    room: room || currentRoom || "general",
-    mode
-  };
-
-  currentRoom = pendingJoin.room;
-  myUsername = pendingJoin.username;
-  connectedUsers = [];
-  renderUsers();
-  updateShareQr(currentRoom);
-  updateHeader(currentRoom);
-
-  socket.send(JSON.stringify({
-    type: isChange ? "changeRoom" : "join",
-    username: pendingJoin.username,
-    room: pendingJoin.room,
-    mode: pendingJoin.mode,
-    clientVersion: CLIENT_VERSION
-  }));
-}
-
-function handleSocketMessage(e) {
-  let data;
-
-  try {
-    data = JSON.parse(e.data);
-  } catch (error) {
-    log(e.data, "system");
-    return;
-  }
-
-  if (data.type === "authOk") {
-    isAuthenticated = true;
-    sendJoinOrChange(false);
-    return;
-  }
-
-  if (data.type === "history") {
-    if (!currentRoom && data.room) currentRoom = data.room;
-    renderHistory(data.messages || [], data.room);
-    return;
-  }
-
-  if (data.type === "botPrivate") {
-    document.getElementById("chat").innerHTML = "";
-    log(data.text, "system");
-    return;
-  }
-
-  if (data.type === "users") {
-    if (!data.room || data.room === currentRoom) {
-      connectedUsers = Array.isArray(data.users) ? data.users : [];
-      renderUsers();
-    }
-    return;
-  }
-
-  if (data.type === "joined") {
-    currentRoom = data.room;
-    document.getElementById("room").value = data.room;
-    updateHeader(data.room);
-    updateShareQr(data.room);
-
-    document.getElementById("connectBtn").disabled = false;
-    document.getElementById("connectBtn").textContent = "Cambiar sala";
-
-    log(
-      data.mode === "bot"
-        ? "Conectado al bot privado."
-        : "Entraste a la sala " + data.room,
-      "system"
-    );
-    return;
-  }
-
-  if (data.type === "message") {
-    if (data.room && data.room !== currentRoom) return;
-
-    const isMe = data.user === myUsername;
-    log(data.text, isMe ? "me" : "other", data.user, isMe, data.time);
-
-    if (!isMe) {
-      playSound();
-      trackUser(data.user);
-    }
-
-    return;
-  }
-
-  if (data.type === "bot") {
-    log(data.text, "bot", "🤖 Asistente", false, data.time);
-    playSound();
-    return;
-  }
-
-  if (data.type === "system") {
-    if (data.room && data.room !== currentRoom) return;
-
-    const text = data.text || data.message || "";
-    const joinMatch = text.match(/^(.+) se unió|^(.+) entró/);
-    const leaveMatch = text.match(/^(.+) salió/);
-
-    if (joinMatch) trackUser(joinMatch[1] || joinMatch[2]);
-    if (leaveMatch) removeUser(leaveMatch[1]);
-
-    log(text, "system", "", false, data.time);
-    return;
-  }
-}
-
-function renderHistory(messages, room) {
-  const chat = document.getElementById("chat");
-  chat.innerHTML = "";
-
-  log("Historial de la sala " + room, "system");
-
-  if (!messages || messages.length === 0) {
-    log("No hay mensajes anteriores en esta sala.", "system");
-    return;
-  }
-
-  messages.forEach((msg) => {
-    if (msg.room && msg.room !== (room || currentRoom)) return;
-
-    if (msg.type === "message") {
-      const isMe = msg.user === myUsername;
-      log(msg.text, isMe ? "me" : "other", msg.user, isMe, msg.time);
-    }
-
-    if (msg.type === "system") {
-      log(msg.text || msg.message, "system", "", false, msg.time);
-    }
-  });
-}
-
-function setStatus(online) {
-  document.getElementById("statusDot").classList.toggle("online", online);
-  document.getElementById("statusText").textContent =
-    online ? "En línea" : "Desconectado";
-}
-
-function trackUser(name) {
-  if (!name) return;
-
-  if (!connectedUsers.includes(name)) {
-    connectedUsers.push(name);
-    renderUsers();
-  }
-}
-
-function removeUser(name) {
-  connectedUsers = connectedUsers.filter(u => u !== name);
-  renderUsers();
-}
-
-function renderUsers() {
-  const list = document.getElementById("usersList");
-
-  list.innerHTML = "";
-
-  const all = myUsername
-    ? [myUsername, ...connectedUsers.filter(u => u !== myUsername)]
-    : connectedUsers;
-
-  const unique = [...new Set(all)];
-
-  unique.forEach(u => {
-    const div = document.createElement("div");
-    div.className = "user-item";
-
-    div.innerHTML = `
-      <div class="user-dot"></div>
-      <span>${escapeHtml(u)}${u === myUsername ? " (tú)" : ""}</span>
-    `;
-
-    list.appendChild(div);
-  });
-}
-
-function send() {
-  if (!socket || socket.readyState !== WebSocket.OPEN || !isAuthenticated) {
-    alert("No estás conectado");
-    return;
-  }
-
-  const msg = document.getElementById("message").value.trim();
-
-  if (!msg) return;
-
-  socket.send(JSON.stringify({
-    type: "message",
-    text: msg,
-    room: currentRoom
-  }));
-
-  document.getElementById("message").value = "";
-  autoResize(document.getElementById("message"));
-}
-
-function addEmoji(e) {
-  const input = document.getElementById("message");
-
-  input.value += e;
-  input.focus();
-}
-
-function handleKey(e) {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    send();
-  }
-}
-
-function autoResize(el) {
-  el.style.height = "auto";
-  el.style.height = Math.min(el.scrollHeight, 100) + "px";
-}
-
-function log(text, type, user = "", isMe = false, time = null) {
-  const chat = document.getElementById("chat");
-  const row = document.createElement("div");
-
-  row.className = "msg-row " + type;
-
-  if (type === "system") {
-    row.innerHTML = `<div class="msg-bubble">${escapeHtml(text)}</div>`;
-  } else {
-    const date = time ? new Date(time) : new Date();
-    const now = date.toLocaleTimeString("es", {
-      hour: "2-digit",
-      minute: "2-digit"
+  <div id="startScreen" class="start-screen">
+    <div class="start-card">
+      <h1>DOOM CHAT ARENA</h1>
+      <p>Multijugador en tiempo real con WebSocket</p>
+
+      <div class="form-row">
+        <label>Nombre del jugador</label>
+        <input id="nickInput" value="Alex" />
+      </div>
+
+      <div class="form-row">
+        <label>Sala / mapa</label>
+        <select id="roomInput">
+          <option value="E1M1">E1M1 - Hangar</option>
+          <option value="E1M2">E1M2 - Nuclear Plant</option>
+          <option value="ARENA">ARENA FINAL</option>
+          <option value="EXPO">SALA DE EXPOSICIÓN</option>
+        </select>
+      </div>
+
+      <button id="startBtn" class="start-btn">ENTRAR A LA ARENA</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const connectionStatus = document.getElementById("connectionStatus");
+    const messagesEl = document.getElementById("messages");
+    const chatText = document.getElementById("chatText");
+    const sendBtn = document.getElementById("sendBtn");
+
+    const startScreen = document.getElementById("startScreen");
+    const startBtn = document.getElementById("startBtn");
+    const nickInput = document.getElementById("nickInput");
+    const roomInput = document.getElementById("roomInput");
+
+    const hudNick = document.getElementById("hudNick");
+    const hudRoom = document.getElementById("hudRoom");
+    const hudId = document.getElementById("hudId");
+    const playersList = document.getElementById("playersList");
+
+    const hpValue = document.getElementById("hpValue");
+    const scoreValue = document.getElementById("scoreValue");
+    const roomValue = document.getElementById("roomValue");
+    const onlineValue = document.getElementById("onlineValue");
+
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+
+    canvas.width = W;
+    canvas.height = H;
+
+    window.addEventListener("resize", () => {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = W;
+      canvas.height = H;
     });
 
-    const meta = user && !isMe
-      ? `<div class="msg-meta">${escapeHtml(user)} · ${now}</div>`
-      : `<div class="msg-meta">${now}</div>`;
+    const MAP = [
+      "################",
+      "#..............#",
+      "#..##..........#",
+      "#..............#",
+      "#......###.....#",
+      "#..............#",
+      "#...#..........#",
+      "#...#.....##...#",
+      "#..............#",
+      "#......#.......#",
+      "#......#.......#",
+      "#..............#",
+      "#...###........#",
+      "#..............#",
+      "#..............#",
+      "################"
+    ];
 
-    row.innerHTML = `
-      <div class="msg-bubble">${escapeHtml(text)}</div>
-      ${meta}
-    `;
-  }
+    const TILE = 64;
+    const FOV = Math.PI / 3;
+    const RAYS = 190;
+    const MAX_DEPTH = 900;
 
-  chat.appendChild(row);
-  chat.scrollTop = chat.scrollHeight;
-}
+    let ws = null;
+    let myId = null;
+    let myNick = "Alex";
+    let currentRoom = "E1M1";
+    let connected = false;
 
-function escapeHtml(text) {
-  return String(text || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+    const keys = {};
+    const players = new Map();
+    const shots = [];
 
-document.getElementById("username").addEventListener("change", () => {
-  myUsername = document.getElementById("username").value.trim();
-  renderUsers();
-});
-</script>
+    const me = {
+      x: 160,
+      y: 160,
+      angle: 0,
+      hp: 100,
+      score: 0,
+      alive: true
+    };
 
+    function getWsUrl() {
+      const host = location.hostname;
+
+      if (host === "localhost" || host === "127.0.0.1" || host === "") {
+        return "ws://localhost:8080";
+      }
+
+      return "wss://websocket-server-guambi971-dev.apps.rm3.7wse.p1.openshiftapps.com";
+    }
+
+    function connect() {
+      ws = new WebSocket(getWsUrl());
+
+      ws.onopen = () => {
+        connected = true;
+        connectionStatus.textContent = "ONLINE / WEBSOCKET ACTIVO";
+        connectionStatus.classList.remove("offline");
+
+        send({
+          type: "join",
+          nick: myNick,
+          room: currentRoom
+        });
+
+        addSystem("Conexión WebSocket establecida correctamente");
+      };
+
+      ws.onclose = () => {
+        connected = false;
+        connectionStatus.textContent = "DESCONECTADO";
+        connectionStatus.classList.add("offline");
+        addSystem("Conexión cerrada con el servidor");
+      };
+
+      ws.onerror = () => {
+        addSystem("Error de conexión WebSocket");
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "welcome") {
+          myId = data.id;
+          currentRoom = data.room;
+
+          players.clear();
+
+          for (const p of data.players || []) {
+            if (p.id !== myId) {
+              players.set(p.id, p);
+            } else {
+              me.x = p.x;
+              me.y = p.y;
+              me.angle = p.angle;
+              me.hp = p.hp;
+              me.score = p.score || 0;
+              me.alive = p.alive;
+            }
+          }
+
+          for (const m of data.messages || []) {
+            addChat(m.nick, m.text);
+          }
+
+          updateHud();
+        }
+
+        if (data.type === "state") {
+          if (data.player.id !== myId) {
+            players.set(data.player.id, data.player);
+          }
+          updateHud();
+        }
+
+        if (data.type === "chat") {
+          addChat(data.message.nick, data.message.text);
+        }
+
+        if (data.type === "system") {
+          addSystem(data.text);
+        }
+
+        if (data.type === "leave") {
+          players.delete(data.id);
+          addSystem(data.text || "Un jugador salió de la arena");
+          updateHud();
+        }
+
+        if (data.type === "shoot") {
+          shots.push({
+            x: data.x,
+            y: data.y,
+            angle: data.angle,
+            life: 12
+          });
+
+          addSystem(`${data.nick} disparó`);
+        }
+
+        if (data.type === "damage") {
+          for (const p of data.players || []) {
+            if (p.id === myId) {
+              me.hp = p.hp;
+              me.alive = p.alive;
+              me.score = p.score || me.score;
+            } else {
+              players.set(p.id, p);
+            }
+          }
+
+          if (me.hp <= 0) {
+            addSystem("Has sido eliminado. Reapareciendo...");
+            setTimeout(() => {
+              me.hp = 100;
+              me.alive = true;
+              send({ type: "respawn" });
+            }, 1300);
+          }
+
+          updateHud();
+        }
+
+        if (data.type === "respawn") {
+          if (data.player.id === myId) {
+            me.x = data.player.x;
+            me.y = data.player.y;
+            me.hp = data.player.hp;
+            me.alive = data.player.alive;
+          } else {
+            players.set(data.player.id, data.player);
+          }
+
+          updateHud();
+        }
+      };
+    }
+
+    function send(data) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+      }
+    }
+
+    function addSystem(text) {
+      const div = document.createElement("div");
+      div.className = "msg system";
+      div.textContent = "[SYSTEM] " + text;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function addChat(nick, text) {
+      const div = document.createElement("div");
+      div.className = "msg";
+      div.innerHTML = `<span class="nick">${escapeHtml(nick)}:</span> ${escapeHtml(text)}`;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    function updateHud() {
+      hudNick.textContent = myNick;
+      hudRoom.textContent = currentRoom;
+      hudId.textContent = myId || "---";
+
+      hpValue.textContent = Math.max(0, Math.round(me.hp));
+      scoreValue.textContent = me.score || 0;
+      roomValue.textContent = currentRoom;
+      onlineValue.textContent = players.size + 1;
+
+      playersList.innerHTML = "";
+
+      const myRow = document.createElement("div");
+      myRow.className = "player-row";
+      myRow.textContent = `${myNick} / HP ${Math.round(me.hp)} / tú`;
+      playersList.appendChild(myRow);
+
+      for (const p of players.values()) {
+        const row = document.createElement("div");
+        row.className = "player-row";
+        row.textContent = `${p.nick} / HP ${Math.round(p.hp)} / Score ${p.score || 0}`;
+        playersList.appendChild(row);
+      }
+    }
+
+    function isWall(x, y) {
+      const mx = Math.floor(x / TILE);
+      const my = Math.floor(y / TILE);
+
+      if (my < 0 || my >= MAP.length || mx < 0 || mx >= MAP[0].length) {
+        return true;
+      }
+
+      return MAP[my][mx] === "#";
+    }
+
+    function movePlayer() {
+      if (!me.alive) return;
+
+      const speed = keys["Shift"] ? 4.3 : 2.6;
+      const rotSpeed = 0.045;
+
+      if (keys["a"] || keys["A"] || keys["ArrowLeft"]) me.angle -= rotSpeed;
+      if (keys["d"] || keys["D"] || keys["ArrowRight"]) me.angle += rotSpeed;
+
+      let dx = 0;
+      let dy = 0;
+
+      if (keys["w"] || keys["W"] || keys["ArrowUp"]) {
+        dx += Math.cos(me.angle) * speed;
+        dy += Math.sin(me.angle) * speed;
+      }
+
+      if (keys["s"] || keys["S"] || keys["ArrowDown"]) {
+        dx -= Math.cos(me.angle) * speed;
+        dy -= Math.sin(me.angle) * speed;
+      }
+
+      const nx = me.x + dx;
+      const ny = me.y + dy;
+
+      if (!isWall(nx, me.y)) me.x = nx;
+      if (!isWall(me.x, ny)) me.y = ny;
+    }
+
+    function castRay(angle) {
+      let depth = 0;
+
+      while (depth < MAX_DEPTH) {
+        const x = me.x + Math.cos(angle) * depth;
+        const y = me.y + Math.sin(angle) * depth;
+
+        if (isWall(x, y)) {
+          return { depth, x, y };
+        }
+
+        depth += 4;
+      }
+
+      return { depth: MAX_DEPTH, x: me.x, y: me.y };
+    }
+
+    function render3D() {
+      const sky = ctx.createLinearGradient(0, 0, 0, H / 2);
+      sky.addColorStop(0, "#240000");
+      sky.addColorStop(1, "#090909");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H / 2);
+
+      const floor = ctx.createLinearGradient(0, H / 2, 0, H);
+      floor.addColorStop(0, "#181818");
+      floor.addColorStop(1, "#050505");
+      ctx.fillStyle = floor;
+      ctx.fillRect(0, H / 2, W, H / 2);
+
+      const colWidth = W / RAYS;
+
+      for (let i = 0; i < RAYS; i++) {
+        const rayAngle = me.angle - FOV / 2 + (i / RAYS) * FOV;
+        const hit = castRay(rayAngle);
+
+        const corrected = hit.depth * Math.cos(rayAngle - me.angle);
+        const wallHeight = Math.min(H, (TILE * 720) / (corrected + 0.0001));
+        const shade = Math.max(25, 220 - corrected * 0.22);
+
+        ctx.fillStyle = `rgb(${shade}, ${Math.floor(shade * 0.22)}, ${Math.floor(shade * 0.13)})`;
+
+        const x = i * colWidth;
+        const y = H / 2 - wallHeight / 2;
+
+        ctx.fillRect(x, y, Math.ceil(colWidth) + 1, wallHeight);
+
+        if (i % 12 === 0) {
+          ctx.fillStyle = "rgba(255,255,255,0.07)";
+          ctx.fillRect(x, y, 1, wallHeight);
+        }
+      }
+
+      renderRemotePlayers();
+      renderShots();
+      renderMiniMap();
+    }
+
+    function normalizeAngle(a) {
+      while (a < -Math.PI) a += Math.PI * 2;
+      while (a > Math.PI) a -= Math.PI * 2;
+      return a;
+    }
+
+    function renderRemotePlayers() {
+      const visible = [];
+
+      for (const p of players.values()) {
+        if (!p.alive) continue;
+
+        const dx = p.x - me.x;
+        const dy = p.y - me.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angleTo = Math.atan2(dy, dx);
+        const diff = normalizeAngle(angleTo - me.angle);
+
+        if (Math.abs(diff) < FOV / 2 && dist > 20) {
+          visible.push({ p, dist, diff });
+        }
+      }
+
+      visible.sort((a, b) => b.dist - a.dist);
+
+      for (const obj of visible) {
+        const screenX = W / 2 + (obj.diff / (FOV / 2)) * (W / 2);
+        const size = Math.min(170, Math.max(24, 9000 / obj.dist));
+        const y = H / 2 - size / 2;
+
+        ctx.fillStyle = "rgba(255, 190, 70, 0.95)";
+        ctx.fillRect(screenX - size / 4, y, size / 2, size);
+
+        ctx.fillStyle = "rgba(120, 20, 10, 0.95)";
+        ctx.fillRect(screenX - size / 4, y + size * 0.55, size / 2, size * 0.45);
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "12px Courier New";
+        ctx.textAlign = "center";
+        ctx.fillText(obj.p.nick, screenX, y - 8);
+      }
+    }
+
+    function renderShots() {
+      for (let i = shots.length - 1; i >= 0; i--) {
+        const s = shots[i];
+        s.life--;
+
+        const dx = s.x - me.x;
+        const dy = s.y - me.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angleTo = Math.atan2(dy, dx);
+        const diff = normalizeAngle(angleTo - me.angle);
+
+        if (Math.abs(diff) < FOV / 2) {
+          const screenX = W / 2 + (diff / (FOV / 2)) * (W / 2);
+          const size = Math.max(4, 90 / (dist / 100 + 1));
+
+          ctx.fillStyle = "rgba(255, 240, 120, 0.9)";
+          ctx.beginPath();
+          ctx.arc(screenX, H / 2, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (s.life <= 0) {
+          shots.splice(i, 1);
+        }
+      }
+    }
+
+    function renderMiniMap() {
+      const scale = 0.18;
+      const offsetX = 15;
+      const offsetY = H - 290;
+
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+
+      ctx.fillStyle = "rgba(0,0,0,0.65)";
+      ctx.fillRect(offsetX - 8, offsetY - 8, MAP[0].length * TILE * scale + 16, MAP.length * TILE * scale + 16);
+
+      for (let y = 0; y < MAP.length; y++) {
+        for (let x = 0; x < MAP[y].length; x++) {
+          ctx.fillStyle = MAP[y][x] === "#" ? "#8b2b18" : "#181818";
+          ctx.fillRect(offsetX + x * TILE * scale, offsetY + y * TILE * scale, TILE * scale - 1, TILE * scale - 1);
+        }
+      }
+
+      ctx.fillStyle = "#ffe071";
+      ctx.beginPath();
+      ctx.arc(offsetX + me.x * scale, offsetY + me.y * scale, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#ffe071";
+      ctx.beginPath();
+      ctx.moveTo(offsetX + me.x * scale, offsetY + me.y * scale);
+      ctx.lineTo(
+        offsetX + (me.x + Math.cos(me.angle) * 40) * scale,
+        offsetY + (me.y + Math.sin(me.angle) * 40) * scale
+      );
+      ctx.stroke();
+
+      for (const p of players.values()) {
+        ctx.fillStyle = "#62e6ff";
+        ctx.beginPath();
+        ctx.arc(offsetX + p.x * scale, offsetY + p.y * scale, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    let lastStateSent = 0;
+
+    function loop(timestamp) {
+      movePlayer();
+      render3D();
+
+      if (connected && timestamp - lastStateSent > 70) {
+        send({
+          type: "state",
+          x: me.x,
+          y: me.y,
+          angle: me.angle,
+          hp: me.hp,
+          alive: me.alive
+        });
+
+        lastStateSent = timestamp;
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    function shoot() {
+      if (!connected || !me.alive) return;
+
+      send({
+        type: "shoot",
+        x: me.x,
+        y: me.y,
+        angle: me.angle
+      });
+
+      let closest = null;
+      let bestDiff = 0.12;
+      let bestDist = 99999;
+
+      for (const p of players.values()) {
+        if (!p.alive) continue;
+
+        const dx = p.x - me.x;
+        const dy = p.y - me.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angleTo = Math.atan2(dy, dx);
+        const diff = Math.abs(normalizeAngle(angleTo - me.angle));
+
+        if (diff < bestDiff && dist < bestDist && dist < 420) {
+          closest = p;
+          bestDist = dist;
+        }
+      }
+
+      if (closest) {
+        send({
+          type: "hit",
+          targetId: closest.id
+        });
+      }
+    }
+
+    function sendChat() {
+      const text = chatText.value.trim();
+      if (!text) return;
+
+      send({
+        type: "chat",
+        text
+      });
+
+      chatText.value = "";
+    }
+
+    window.addEventListener("keydown", (e) => {
+      keys[e.key] = true;
+
+      if (e.key === " ") {
+        e.preventDefault();
+        shoot();
+      }
+
+      if (e.key === "Enter" && document.activeElement === chatText) {
+        sendChat();
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      keys[e.key] = false;
+    });
+
+    sendBtn.addEventListener("click", sendChat);
+
+    startBtn.addEventListener("click", () => {
+      myNick = nickInput.value.trim() || "Marine";
+      currentRoom = roomInput.value;
+
+      hudNick.textContent = myNick;
+      hudRoom.textContent = currentRoom;
+      roomValue.textContent = currentRoom;
+
+      startScreen.style.display = "none";
+      connect();
+    });
+
+    requestAnimationFrame(loop);
+  </script>
 </body>
 </html>
